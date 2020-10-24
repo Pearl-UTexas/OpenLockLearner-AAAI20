@@ -7,9 +7,7 @@ import matplotlib.pyplot as plt
 import atexit
 
 # must include this to unpickle properly
-from openlockagents.OpenLockLearner.causal_classes.CausalChain import (
-    CausalChainCompact,
-)
+from openlockagents.OpenLockLearner.causal_classes.CausalChain import CausalChainCompact
 from openlockagents.OpenLockLearner.util.common import (
     STATES_ROLE,
     ACTIONS_ROLE,
@@ -61,9 +59,7 @@ def main():
     params["test_attempt_limit"] = 10000
     params[
         "full_attempt_limit"
-    ] = (
-        True
-    )  # run to the full attempt limit, regardless of whether or not all solutions were found
+    ] = True  # run to the full attempt limit, regardless of whether or not all solutions were found
     params["intervention_sample_size"] = 10
     params["chain_sample_size"] = 1000
 
@@ -112,7 +108,7 @@ def main():
         return
 
     # verify all causally plausible chains are present in chain space
-    # todo: this does not work because causal chain space does not allow duplicate states. e.g. l0 cannot be used twice
+    # TODO(mjedmonds): this does not work because causal chain space does not allow duplicate states. e.g. l0 cannot be used twice
     # plausible_chains = CAUSALLY_PLAUSIBLE_CHAINS_CE3
     # causal_chain_space.verify_chains_present_in_chain_space(plausible_chains)
     # return
@@ -199,9 +195,10 @@ def main():
     agent.logger.cur_trial = recv_zipped_pickle(socket)
     print("Received current trial info from simulator")
 
-    optimal_interventions, optimal_outcomes = (
-        agent.get_true_interventions_and_outcomes()
-    )
+    (
+        optimal_interventions,
+        optimal_outcomes,
+    ) = agent.get_true_interventions_and_outcomes()
 
     # interventions = [
     #     ('push_l1', 'push_l0', 'push_door'),
@@ -217,7 +214,9 @@ def main():
     # send_chain_actions(socket, agent.true_chains)
 
     t = time.time()
-    chains_with_positive_belief = agent.causal_chain_structure_space.chains_with_positive_belief()
+    chains_with_positive_belief = (
+        agent.causal_chain_structure_space.chains_with_positive_belief()
+    )
 
     trial_finished = False
 
@@ -253,7 +252,7 @@ def main():
             )
             # wait for results and append the results to the agent's log
             response = recv_zipped_pickle(socket)
-            # todo: this only handles a single trial.
+            # TODO(mjedmonds): this only handles a single trial.
             trial = response["trial"]
             is_current_trial = response["is_current_trial"]
             trial_finished = response["trial_finished"]
@@ -270,9 +269,10 @@ def main():
                 print("attempt is none")
 
             # update beliefs, uses agent's log to get executed interventions/outcomes
-            max_a_posteriori_chains, num_chains_pruned_action = agent.update_causal_model(
-                action, attempt_results
-            )
+            (
+                max_a_posteriori_chains,
+                num_chains_pruned_action,
+            ) = agent.update_causal_model(action, attempt_results)
             num_chains_pruned_step += num_chains_pruned_action
 
             if 0 < len(max_a_posteriori_chains) < 20:

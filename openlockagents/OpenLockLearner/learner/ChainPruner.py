@@ -36,9 +36,12 @@ def prune_chains_from_initial_observation_multiproc(
             for i in range(1, len(slicing_indices))
         )
         for chain_space_tuple in chain_space_tuples:
-            returned_beliefs, returned_chain_idxs_pruned, starting_index, ending_index = (
-                chain_space_tuple
-            )
+            (
+                returned_beliefs,
+                returned_chain_idxs_pruned,
+                starting_index,
+                ending_index,
+            ) = chain_space_tuple
             causal_chain_space.bottom_up_belief_space.beliefs[
                 starting_index:ending_index
             ] = returned_beliefs
@@ -65,7 +68,7 @@ class ChainPruner:
         :param initial_observations: initial observations, specifically the attributes of every position
         :return: nothing
         """
-        # todo: generalize this; it's manually defined for position
+        # TODO(mjedmonds): generalize this; it's manually defined for position
         position_to_color_dict = dict()
         attributes = [env.get_obj_attributes(obj) for obj in env.position_to_idx.keys()]
         if using_ids:
@@ -87,7 +90,10 @@ class ChainPruner:
             position_to_color_dict[position] = color
 
         if multiproc:
-            causal_chain_space.bottom_up_belief_space.beliefs, chain_idxs_pruned = prune_chains_from_initial_observation_multiproc(
+            (
+                causal_chain_space.bottom_up_belief_space.beliefs,
+                chain_idxs_pruned,
+            ) = prune_chains_from_initial_observation_multiproc(
                 self,
                 causal_chain_space,
                 position_to_color_dict,
@@ -95,7 +101,12 @@ class ChainPruner:
                 attempt_count,
             )
         else:
-            causal_chain_space.bottom_up_belief_space.beliefs, chain_idxs_pruned, _, _ = self.prune_chains_from_initial_observation_common(
+            (
+                causal_chain_space.bottom_up_belief_space.beliefs,
+                chain_idxs_pruned,
+                _,
+                _,
+            ) = self.prune_chains_from_initial_observation_common(
                 causal_chain_space,
                 position_to_color_dict,
                 trial_count,
@@ -163,7 +174,7 @@ class ChainPruner:
             "Pruned {}/{} chains based on initial observation".format(
                 len(chain_idxs_pruned), ending_idx - starting_idx
             ),
-            self.print_messages
+            self.print_messages,
         )
         return (
             causal_chain_space.bottom_up_belief_space.beliefs[starting_idx:ending_idx],
@@ -175,7 +186,7 @@ class ChainPruner:
     def prune_inconsistent_chains_v2(
         self, causal_chain_space, causal_chain_idxs, action_sequences_to_prune
     ):
-        # todo: implement a more efficient version of this function using the action sequences that should be pruned, then find the indices of those action sequences and prune
+        # TODO(mjedmonds): implement a more efficient version of this function using the action sequences that should be pruned, then find the indices of those action sequences and prune
         chain_idxs_removed_total = set()
         for pruned_seq in action_sequences_to_prune:
             chain_idxs_removed_total.update(
@@ -184,7 +195,7 @@ class ChainPruner:
                 )
             )
         # filter down to the causal chains remaining
-        # todo: this intersection should work, but is not
+        # TODO(mjedmonds): this intersection should work, but is not
         chain_idxs_removed = set(causal_chain_idxs).intersection(
             chain_idxs_removed_total
         )
@@ -212,7 +223,7 @@ class ChainPruner:
         multiproc=False,
     ):
         assert False, "function deprecated"
-        # todo: this will only work in the deterministic case
+        # TODO(mjedmonds): this will only work in the deterministic case
         if causal_chain_space.structure_space.using_ids:
             causal_observations = [
                 causal_chain_space.structure_space.unique_id_manager.convert_causal_observation_to_target_type(
@@ -225,7 +236,10 @@ class ChainPruner:
         #     print('No effect')
 
         if not multiproc:
-            chain_idxs_removed, chain_idxs_consistent = self.prune_inconsistent_chains_common(
+            (
+                chain_idxs_removed,
+                chain_idxs_consistent,
+            ) = self.prune_inconsistent_chains_common(
                 causal_chain_space,
                 causal_chain_idxs,
                 causal_observations,
@@ -233,14 +247,17 @@ class ChainPruner:
                 attempt_count,
             )
         else:
-            chain_idxs_removed, chain_idxs_consistent = self.prune_inconsistent_chains_common(
+            (
+                chain_idxs_removed,
+                chain_idxs_consistent,
+            ) = self.prune_inconsistent_chains_common(
                 causal_chain_space,
                 causal_chain_idxs,
                 causal_observations,
                 trial_count,
                 attempt_count,
             )
-            # todo: cannot parallelize this; class functions are unpicklable
+            # TODO(mjedmonds): cannot parallelize this; class functions are unpicklable
             # slicing_indices = generate_slicing_indices(self.causal_chain_space.structure_space.causal_chains)
             # with Parallel(n_jobs=multiprocessing.cpu_count(), verbose=5) as parallel:
             #     chain_idxs_to_remove_and_chains_removed = parallel(delayed(self.prune_chains_with_inconsistent_conditional_probability_table_and_update_belief_counts_common)(self.causal_chain_space.structure_space.causal_chains[slicing_indices[i-1]:slicing_indices[i]], observed_state, observed_action, observed_causal_relation_type, observed_attributes) for i in range(len(slicing_indices)))
@@ -274,7 +291,7 @@ class ChainPruner:
                     "Checking for chains to prune. {}/{} chains checked. Runtime: {:0.6f}s".format(
                         i, len(causal_chain_idxs), time.time() - start_time
                     ),
-                    self.print_messages
+                    self.print_messages,
                 )
 
             # this represents where we are in the chain's transitions - not all observations are causal, so don't advance the chain's execution
@@ -318,7 +335,11 @@ class ChainPruner:
 
             chain_consistent = True
             for causal_observation in causal_observations:
-                skipped_relation_flag, skip_chain_flag, outcome_consistent = self.check_node_consistency(
+                (
+                    skipped_relation_flag,
+                    skip_chain_flag,
+                    outcome_consistent,
+                ) = self.check_node_consistency(
                     causal_chain_space=causal_chain_space,
                     causal_observation=causal_observation,
                     chain=chain,

@@ -36,7 +36,10 @@ class InterventionSelector:
                 sample_chains=sample_chains,
             )
         else:
-            intervention, intervention_info_gain = self.select_intervention_information_gain(
+            (
+                intervention,
+                intervention_info_gain,
+            ) = self.select_intervention_information_gain(
                 causal_chain_space=causal_chain_space,
                 causal_chain_idxs=causal_chain_idxs_with_positive_belief,
                 outcomes=outcomes,
@@ -68,7 +71,8 @@ class InterventionSelector:
             causal_chain_space.structure_space.belief_threshold,
         )
         assert (
-            causal_chain_space.structure_space.num_chains_with_belief_above_threshold >= 0
+            causal_chain_space.structure_space.num_chains_with_belief_above_threshold
+            >= 0
         ), assert_str
 
         if sample_chains:
@@ -87,11 +91,13 @@ class InterventionSelector:
                 len(selected_causal_chain_idxs),
                 causal_chain_space.structure_space.num_chains_with_belief_above_threshold,
             ),
-            self.print_messages
+            self.print_messages,
         )
         rand_idx = np.random.randint(0, len(selected_causal_chain_idxs))
         intervention_idx = selected_causal_chain_idxs[rand_idx]
-        intervention = causal_chain_space.structure_space.causal_chains.get_actions(intervention_idx)
+        intervention = causal_chain_space.structure_space.causal_chains.get_actions(
+            intervention_idx
+        )
         return intervention, 0
 
     # chooses an intervention
@@ -114,7 +120,10 @@ class InterventionSelector:
             causal_chain_space.bottom_up_belief_space.num_chains_with_belief_above_threshold,
             causal_chain_space.bottom_up_belief_space.belief_threshold,
         )
-        assert causal_chain_space.bottom_up_belief_space.num_chains_with_belief_above_threshold >= 0, assert_str
+        assert (
+            causal_chain_space.bottom_up_belief_space.num_chains_with_belief_above_threshold
+            >= 0
+        ), assert_str
 
         if sample_chains:
             # sample a set of chains used to perform intervention selection
@@ -136,13 +145,16 @@ class InterventionSelector:
                 len(selected_causal_chain_idxs),
                 causal_chain_space.bottom_up_belief_space.num_chains_with_belief_above_threshold,
             ),
-            self.print_messages
+            self.print_messages,
         )
 
         # single processing
         if not multiproc:
             # estimate the information gain from a sample of interventions
-            optimal_intervention, optimal_information_gain = self.select_intervention_common(
+            (
+                optimal_intervention,
+                optimal_information_gain,
+            ) = self.select_intervention_common(
                 causal_chain_space,
                 selected_causal_chain_idxs,
                 outcomes,
@@ -152,8 +164,11 @@ class InterventionSelector:
             return optimal_intervention, optimal_information_gain
         # multiprocessing
         else:
-            # todo: run single-threaded version since joblib cannot pickle
-            optimal_intervention, optimal_information_gain = self.select_intervention_common(
+            # TODO(mjedmonds): run single-threaded version since joblib cannot pickle
+            (
+                optimal_intervention,
+                optimal_information_gain,
+            ) = self.select_intervention_common(
                 causal_chain_space,
                 selected_causal_chain_idxs,
                 outcomes,
@@ -161,7 +176,7 @@ class InterventionSelector:
                 attempt_count,
             )
             return optimal_intervention, optimal_information_gain
-            # todo: fix multiprocessing method below - joblib cannot pickle causal_classes
+            # TODO(mjedmonds): fix multiprocessing method below - joblib cannot pickle causal_classes
             # slicing_indices = generate_slicing_indices(interventions)
             # results = mp.ProcessingPool.map(
             #     self.select_intervention_common,
@@ -195,15 +210,27 @@ class InterventionSelector:
         t = time.time()
         while optimal_intervention_information_gain <= 0:
             start_time = time.time()
-            print_message(trial_count, attempt_count, "Sampling intervention...", self.print_messages)
-            interventions, intervention_chain_idxs, all_chains_executed = self.sample_intervention_batch(
+            print_message(
+                trial_count,
+                attempt_count,
+                "Sampling intervention...",
+                self.print_messages,
+            )
+            (
+                interventions,
+                intervention_chain_idxs,
+                all_chains_executed,
+            ) = self.sample_intervention_batch(
                 causal_chain_space.structure_space,
                 selected_causal_chain_idxs,
                 self.intervention_sample_size,
             )
             assert all(
                 [
-                    causal_chain_space.bottom_up_belief_space.beliefs[intervention_chain_idx] > 0
+                    causal_chain_space.bottom_up_belief_space.beliefs[
+                        intervention_chain_idx
+                    ]
+                    > 0
                     for intervention_chain_idx in intervention_chain_idxs
                 ]
             ), "Intervention does not have positive belief"
@@ -212,7 +239,7 @@ class InterventionSelector:
                 trial_count,
                 attempt_count,
                 "Sampling intervention took {:0.6f}s".format(time.time() - start_time),
-                self.print_messages
+                self.print_messages,
             )
             total_interventions = +len(interventions)
             for intervention in interventions:
@@ -221,7 +248,10 @@ class InterventionSelector:
                 o_count = 0
                 total_num_positive_likelihoods = 0
                 for outcome in outcomes:
-                    information_gain, num_positive_likelihoods = self.compute_information_gain(
+                    (
+                        information_gain,
+                        num_positive_likelihoods,
+                    ) = self.compute_information_gain(
                         causal_chain_space,
                         selected_causal_chain_idxs,
                         intervention,
@@ -230,7 +260,7 @@ class InterventionSelector:
                     total_num_positive_likelihoods += num_positive_likelihoods
                     intervention_information_gain += information_gain
                     o_count += 1
-                # todo: why would this be negative?
+                # TODO(mjedmonds): why would this be negative?
                 if intervention_information_gain < 0:
                     print_message(
                         trial_count,
@@ -258,7 +288,7 @@ class InterventionSelector:
                         total_num_positive_likelihoods,
                         intervention,
                     ),
-                    self.print_messages
+                    self.print_messages,
                 )
                 print_message(
                     trial_count,
@@ -270,15 +300,15 @@ class InterventionSelector:
                         optimal_intervention_information_gain,
                         time.time() - t,
                     ),
-                    self.print_messages
+                    self.print_messages,
                 )
                 t = time.time()
                 i_count += 1
 
-            # todo: since we sample interventions only from valid chains, shouldn't we always have a positive information gain?
-            # todo: We should be able to learn something by executing a chain from the plausible space, no matter what. Investigate.
+            # TODO(mjedmonds): since we sample interventions only from valid chains, shouldn't we always have a positive information gain?
+            # TODO(mjedmonds): We should be able to learn something by executing a chain from the plausible space, no matter what. Investigate.
             if optimal_intervention_information_gain <= 0:
-                # todo: should this be selected_causal_chains or causal_chains_with_positive_belief?
+                # TODO(mjedmonds): should this be selected_causal_chains or causal_chains_with_positive_belief?
                 print_message(
                     trial_count,
                     attempt_count,
@@ -290,13 +320,19 @@ class InterventionSelector:
 
     @staticmethod
     def sample_chains(
-        causal_chain_structure_space, causal_chain_idxs, chain_sample_size, interventions_executed
+        causal_chain_structure_space,
+        causal_chain_idxs,
+        chain_sample_size,
+        interventions_executed,
     ):
         selected_causal_chain_idxs = []
         all_chains_executed = False
 
         while len(selected_causal_chain_idxs) == 0:
-            selected_causal_chain_idxs, all_chains_executed = causal_chain_structure_space.sample_chains(
+            (
+                selected_causal_chain_idxs,
+                all_chains_executed,
+            ) = causal_chain_structure_space.sample_chains(
                 causal_chain_idxs,
                 sample_size=chain_sample_size,
                 action_sequences_executed=interventions_executed,
@@ -308,7 +344,9 @@ class InterventionSelector:
 
     # simulates intervention using this compact causal chain and the schema
     @staticmethod
-    def simulate_intervention(causal_chain_structure_space, compact_causal_chain, intervention):
+    def simulate_intervention(
+        causal_chain_structure_space, compact_causal_chain, intervention
+    ):
         # verify this chain is capable of performing this intervention (i.e. the action nodes match)
         if compact_causal_chain.actions != intervention:
             return None
@@ -322,7 +360,11 @@ class InterventionSelector:
             # cur fluent value is stored in the rightmost column
             state_outcome = causal_chain_structure_space.base_schema.node_id_to_node_dict[
                 state_id
-            ].conditional_probability_table[cpt_choice][-1]
+            ].conditional_probability_table[
+                cpt_choice
+            ][
+                -1
+            ]
             states.append(int(state_outcome))
 
         return tuple(states)
@@ -330,11 +372,7 @@ class InterventionSelector:
     # computes p(o|q,g)*p(g), which is fixed in time for every g,q,o pair, also computes the sum of this term
     # due to memory constraints, compute a cache of these values given a specific q and o over all possible chains
     def compute_cached_outcome_likelihoods_given_intervention_and_chain_times_belief(
-        self,
-        causal_chain_space,
-        selected_causal_chain_idxs,
-        intervention,
-        outcome,
+        self, causal_chain_space, selected_causal_chain_idxs, intervention, outcome,
     ):
         num_likelihoods = len(selected_causal_chain_idxs)
         num_positive_likelihoods = 0
@@ -348,8 +386,12 @@ class InterventionSelector:
         # ] * num_likelihoods
         for i in range(len(selected_causal_chain_idxs)):
             causal_chain_idx = selected_causal_chain_idxs[i]
-            chain_chain = causal_chain_space.structure_space.causal_chains[causal_chain_idx]
-            chain_belief = causal_chain_space.bottom_up_belief_space.beliefs[causal_chain_idx]
+            chain_chain = causal_chain_space.structure_space.causal_chains[
+                causal_chain_idx
+            ]
+            chain_belief = causal_chain_space.bottom_up_belief_space.beliefs[
+                causal_chain_idx
+            ]
 
             # compute outcome likelihood
             # outcome_likelihood = self.compute_outcome_likelihood_given_intervention_and_chain(causal_chain, intervention, outcome)
@@ -393,18 +435,11 @@ class InterventionSelector:
     #     return 1.0
 
     def compute_information_gain(
-        self,
-        causal_chain_space,
-        selected_causal_chain_idxs,
-        intervention,
-        outcome,
+        self, causal_chain_space, selected_causal_chain_idxs, intervention, outcome,
     ):
         # compute cache of p(o|q,g) for each chain
         num_positive_outcome_likelihoods = self.compute_cached_outcome_likelihoods_given_intervention_and_chain_times_belief(
-            causal_chain_space,
-            selected_causal_chain_idxs,
-            intervention,
-            outcome,
+            causal_chain_space, selected_causal_chain_idxs, intervention, outcome,
         )
         # print('Computed cached p(o|q,g)*p(g) for this intervention. Took {} seconds'.format(time.time() - t))
         outcome_likelihood = 0
@@ -413,9 +448,14 @@ class InterventionSelector:
 
         for i in range(len(selected_causal_chain_idxs)):
             causal_chain_idx = selected_causal_chain_idxs[i]
-            chain_belief = causal_chain_space.bottom_up_belief_space.beliefs[causal_chain_idx]
+            chain_belief = causal_chain_space.bottom_up_belief_space.beliefs[
+                causal_chain_idx
+            ]
 
-            if chain_belief <= causal_chain_space.bottom_up_belief_space.belief_threshold:
+            if (
+                chain_belief
+                <= causal_chain_space.bottom_up_belief_space.belief_threshold
+            ):
                 continue
 
             # entropy prior
@@ -478,7 +518,9 @@ class InterventionSelector:
     ):
 
         if batch_size is None:
-            batch_size = causal_chain_structure_space.num_chains_with_belief_above_threshold
+            batch_size = (
+                causal_chain_structure_space.num_chains_with_belief_above_threshold
+            )
 
         # this encourages a variety of interventions, instead of sticking to MAP interventions when batch_size is close to num_chains_with_positive_belief
         # while (
@@ -490,14 +532,19 @@ class InterventionSelector:
         #     # (prevents picking the same intervention every iteration)
         #     batch_size = max(batch_size // 2, 1)
 
-        intervention_chain_idxs, all_chains_executed = causal_chain_structure_space.sample_chains(
+        (
+            intervention_chain_idxs,
+            all_chains_executed,
+        ) = causal_chain_structure_space.sample_chains(
             causal_chain_idxs, sample_size=batch_size
         )
 
         # intervention_chain_ids will be none if we have executed all chains
         if intervention_chain_idxs is not None:
             interventions = [
-                causal_chain_structure_space.causal_chains.get_actions(intervention_chain_idx)
+                causal_chain_structure_space.causal_chains.get_actions(
+                    intervention_chain_idx
+                )
                 for intervention_chain_idx in intervention_chain_idxs
             ]
 

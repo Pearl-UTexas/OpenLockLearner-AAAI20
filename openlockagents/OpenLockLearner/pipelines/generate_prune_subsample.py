@@ -10,7 +10,9 @@ from openlockagents.OpenLockLearner.util.common import (
     merge_perceptually_causal_relations_from_dict_of_trials,
     merge_solutions_from_dict_of_trials,
 )
-from openlockagents.OpenLockLearner.io.causal_structure_io import load_causal_chain_space
+from openlockagents.OpenLockLearner.io.causal_structure_io import (
+    load_causal_chain_space,
+)
 from openlockagents.common.io.log_io import load_solutions_by_trial
 from openlockagents.OpenLockLearner.generator.chain_generator import (
     generate_causal_chains_fixed_structure_attributes,
@@ -23,6 +25,7 @@ from openlockagents.OpenLockLearner.perceptual_causality_python.perceptual_causa
 from openlockagents.OpenLockLearner.learner.ChainPruner import prune_random_subsample
 
 from openlock.settings_trial import PARAMS
+
 
 def main():
 
@@ -60,7 +63,7 @@ def main():
         perceptually_causal_relations_all_trials_merged = merge_perceptually_causal_relations_from_dict_of_trials(
             perceptually_causal_relations
         )
-        # todo: changing this to a set removes the total number of info gains (frequency) we saw this relation
+        # TODO(mjedmonds): changing this to a set removes the total number of info gains (frequency) we saw this relation
         perceptually_causal_relations_all_trials_merged = set(
             perceptually_causal_relations_all_trials_merged
         )
@@ -75,18 +78,15 @@ def main():
             true_chains_by_trial.keys()
         ), "Perceptual relations and true chains do not have the same trials"
 
-
         # setup initial env
         env = gym.make("openlock-v1")
         env.use_physics = False
         env.initialize_for_scenario(params["train_scenario_name"])
 
-
         attributes_to_product = [
             env.attribute_labels[attribute] for attribute in env.attribute_order
         ]
         attribute_pairs = list(itertools.product(*attributes_to_product))
-
 
         # setup causal chain space
         start_time = time.time()
@@ -138,6 +138,7 @@ def main():
     assert causal_chain_space.verify_idxs_have_belief_above_threshold(threshold=0.0)
 
     print("Finished. Total runtime: {}s".format(time.time() - global_start_time))
+
 
 if __name__ == "__main__":
     main()

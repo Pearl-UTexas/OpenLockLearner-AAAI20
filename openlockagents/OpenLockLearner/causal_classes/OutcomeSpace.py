@@ -1,7 +1,9 @@
 import random
 import itertools
 import numpy as np
-from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelationType
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
+    CausalRelationType,
+)
 
 
 class State:
@@ -77,7 +79,7 @@ class Outcome:
 class OutcomeSpace:
     def __init__(self, state_space, num_states_in_chain, using_ids=True):
         self.outcomes = self.generate_outcome_space(state_space, num_states_in_chain)
-        # todo: refactor. Boolean to represent whether or not we are using an ID or string representation of outcomes
+        # TODO(mjedmonds): refactor. Boolean to represent whether or not we are using an ID or string representation of outcomes
         self.using_ids = using_ids
 
     # observation space is all possible combinations of states

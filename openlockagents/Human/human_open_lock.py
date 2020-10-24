@@ -33,7 +33,7 @@ if __name__ == "__main__":
         # general params
         # training params
         # PICK ONE and comment others
-        params = PARAMS['CE3-CE4']
+        params = PARAMS["CE3-CE4"]
         # params = PARAMS['CE3-CC4']
         # params = PARAMS['CC3-CE4']
         # params = PARAMS['CC3-CC4']
@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     scenario = select_scenario(params["train_scenario_name"])
 
-    # todo: this should not be part of OpenLockLearnerAgent
+    # TODO(mjedmonds): this should not be part of OpenLockLearnerAgent
     env = Agent.pre_instantiation_setup(params)
     env.lever_index_mode = "role"
 

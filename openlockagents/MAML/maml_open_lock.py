@@ -94,9 +94,7 @@ def main():
         params["use_physics"] = False
         params[
             "full_attempt_limit"
-        ] = (
-            False
-        )  # run to the full attempt limit, regardless of whether or not all solutions were found
+        ] = False  # run to the full attempt limit, regardless of whether or not all solutions were found
         params["num_training_iters"] = 1000
         params["num_training_trials"] = params["train_num_trials"]
         params["train_attempt_limit"] = 700
@@ -110,7 +108,7 @@ def main():
 
         params_list.append(params)
 
-    # TODO: we assume all the scenarios share the same observation space
+    # TODO(mjedmonds): we assume all the scenarios share the same observation space
     scenario = select_scenario(
         params["train_scenario_name"], use_physics=params["use_physics"]
     )

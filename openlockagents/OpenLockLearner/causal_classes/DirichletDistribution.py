@@ -2,13 +2,13 @@ import numpy as np
 import scipy
 
 
-# todo: rethink how to do local/global attribute sampling.
+# TODO(mjedmonds): rethink how to do local/global attribute sampling.
 class DirichletDistribution:
     def __init__(self, dimensionality, prior=None, initial_alpha=1):
         if prior is None:
             self.frequency_count = np.full(dimensionality, initial_alpha)
         else:
-            # todo: should we initialize frequency count to prior - must be a less hacky way to do this?
+            # TODO(mjedmonds): should we initialize frequency count to prior - must be a less hacky way to do this?
             self.frequency_count = np.array(prior)
         self.prior = prior
         self.sampled_multinomial = None
@@ -52,7 +52,7 @@ class DirichletDistribution:
                 1 / self.frequency_distribution.shape[0],
             )
         )
-        # todo: compute information gain in a similar fashion
+        # TODO(mjedmonds): compute information gain in a similar fashion
         entropy = scipy.stats.entropy(self.frequency_distribution)
         return 1 - (entropy / max_entropy)
 

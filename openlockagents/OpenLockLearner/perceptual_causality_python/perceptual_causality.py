@@ -8,12 +8,8 @@ from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
     CausalRelationType,
     CausalObservation,
 )
-from openlockagents.OpenLockLearner.util.common import (
-    load_openlock_learner_config_json
-)
-from openlockagents.common.io.log_io import (
-    load_human_data_pickle,
-)
+from openlockagents.OpenLockLearner.util.common import load_openlock_learner_config_json
+from openlockagents.common.io.log_io import load_human_data_pickle
 
 
 def scan_for_causal_relations_by_subject(human_subjects):
@@ -99,7 +95,7 @@ def scan_for_causal_relation(causal_relations, attempt, trial_attributes=None):
             # column indices correspond to frame, fluent value, followed by all actions, then inertial
             # so we start looking at the third column for actions, then add 2 to make it consistent indexing
             # with dat
-            # todo: this only supports one action (we take the first one here)
+            # TODO(mjedmonds): this only supports one action (we take the first one here)
             fluent_change_action = np.where(dat[row_idx, 2:])[0][0] + 2
             fluent_change_action_label = dat_cols[fluent_change_action]
 
@@ -164,13 +160,17 @@ def remove_state_from_perceptually_causal_relations(causal_relations, state_name
 
 def write_perceptually_causal_relations(causal_relations):
     openlock_learner_config_data = load_openlock_learner_config_json()
-    with open(openlock_learner_config_data["PERCEPTUALLY_CAUSAL_RELATION_DATA_PATH"], "wb") as outfile:
+    with open(
+        openlock_learner_config_data["PERCEPTUALLY_CAUSAL_RELATION_DATA_PATH"], "wb"
+    ) as outfile:
         pickle.dump(causal_relations, outfile)
 
 
 def load_perceptually_causal_relations():
     openlock_learner_config_data = load_openlock_learner_config_json()
-    with open(openlock_learner_config_data["PERCEPTUALLY_CAUSAL_RELATION_DATA_PATH"], "rb") as infile:
+    with open(
+        openlock_learner_config_data["PERCEPTUALLY_CAUSAL_RELATION_DATA_PATH"], "rb"
+    ) as infile:
         return pickle.load(infile)
 
 
@@ -182,7 +182,7 @@ def generate_perceptually_causal_relations():
     attributes_by_trial = generate_attributes_by_trial()
 
     # causal_relations = scan_for_causal_relations(human_subjects)
-    # todo: use Amy's method
+    # TODO(mjedmonds): use Amy's method
     causal_relations = scan_for_causal_relations_by_trial(
         human_subjects, attributes_by_trial
     )

@@ -4,9 +4,8 @@ import time
 
 import numpy as np
 
-from openlockagents.OpenLockLearner.util.common import (
-    print_message,
-)
+from openlockagents.OpenLockLearner.util.common import print_message
+
 
 class QLearner:
     def __init__(self, max_num_solutions, causal_chains, discount_factor, alpha):
@@ -23,7 +22,7 @@ class QLearner:
         self.rewards = []
 
     def initialize_local_Q(self, trial_name):
-        # todo: can we do something better than deleting the old local Q? Perhaps blend old one with the latest from the global?
+        # TODO(mjedmonds): can we do something better than deleting the old local Q? Perhaps blend old one with the latest from the global?
         if trial_name in self.local_Q.keys():
             del self.local_Q[trial_name]
 
@@ -54,7 +53,7 @@ class QLearner:
         )
         self.qlearner.initialize_local_Q(trial_name)
         if self.qlearner.global_Q.max() == 0.0:
-            # todo: this is stub code to get default dict to be created
+            # TODO(mjedmonds): this is stub code to get default dict to be created
             dummy = self.qlearner.local_Q[trial_name].shape
             return
 
@@ -67,7 +66,7 @@ class QLearner:
             chain_confidence = 0
             total_possible_chain_confidence = 0
             for causal_chain_prime in self.causal_chain_space.causal_chains:
-                # todo: refactor to use attributes only rather than state + attributes
+                # TODO(mjedmonds): refactor to use attributes only rather than state + attributes
                 for i in range(len(causal_chain_prime.attributes)):
                     # color confidence
                     color_confidence = indexed_confidences[i]["color"]
@@ -121,7 +120,7 @@ class QLearner:
         )
         self.qlearner.initialize_local_Q(trial_name)
         if self.qlearner.global_Q.max() == 0.0:
-            # todo: refactor; this is stub code to get default dict to be created
+            # TODO(mjedmonds): refactor; this is stub code to get default dict to be created
             dummy = self.qlearner.local_Q[trial_name].shape
             return
 
@@ -140,7 +139,7 @@ class QLearner:
         if indexed_confidences is None:
             trial_name = self.env.cur_trial.name
             indexed_confidences, _ = self.compute_indexed_confidences(trial_name)
-        # todo: consolidate position and color into attributes
+        # TODO(mjedmonds): consolidate position and color into attributes
         similarity = 0
         total_similarity_possible = 0
         for i in range(len(chain1.states)):
@@ -167,7 +166,7 @@ class QLearner:
         total_confidences = []
         total_color_confidence = 0
         total_position_confidence = 0
-        # todo: make this more robust/general to handle more than two attributes
+        # TODO(mjedmonds): make this more robust/general to handle more than two attributes
         for i in range(num_indices):
             distribution = self.attribute_space.local_attributes[
                 trial_name

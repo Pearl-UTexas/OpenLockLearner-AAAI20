@@ -77,12 +77,12 @@ class CausalRelationSpace:
             perceptually_causal_relation_map=perceptually_causal_relation_map,
         )
 
-        self.causal_relations_no_parent = set([
-            x for x in self.causal_relations if x.precondition is None
-        ])
-        self.causal_relations_parent = set([
-            x for x in self.causal_relations if x.precondition is not None
-        ])
+        self.causal_relations_no_parent = set(
+            [x for x in self.causal_relations if x.precondition is None]
+        )
+        self.causal_relations_parent = set(
+            [x for x in self.causal_relations if x.precondition is not None]
+        )
 
     @staticmethod
     def generate_causal_relations(
@@ -96,7 +96,7 @@ class CausalRelationSpace:
         counter = 0
         for attribute in attributes:
             for action in actions:
-                # todo: this is a hack but prevents a lot of problems later on
+                # TODO(mjedmonds): this is a hack but prevents a lot of problems later on
                 # skip door pulling action
                 if action == "pull" and attribute[0] == "door":
                     continue
@@ -113,7 +113,10 @@ class CausalRelationSpace:
                         #     print("true chain component")
 
                         # check against perceptually causal relations
-                        if (action, attribute) in perceptually_causal_relation_map.keys():
+                        if (
+                            action,
+                            attribute,
+                        ) in perceptually_causal_relation_map.keys():
                             # if the observed fluent change matches the generated one, we can add this relation
                             if (
                                 perceptually_causal_relation_map[(action, attribute)]
@@ -121,7 +124,7 @@ class CausalRelationSpace:
                             ):
                                 causal_relations.add(
                                     (
-                                        # todo: hacky way to add in position to action
+                                        # TODO(mjedmonds): hacky way to add in position to action
                                         CausalRelation(
                                             action=Action(action, attribute[0], None),
                                             attributes=attribute,
@@ -136,7 +139,7 @@ class CausalRelationSpace:
                             # this (action, attribute) pair is not in the perceptually causal relations, add this relation
                             causal_relations.add(
                                 CausalRelation(
-                                    # todo: hacky way to add in position to action
+                                    # TODO(mjedmonds): hacky way to add in position to action
                                     action=Action(action, attribute[0], None),
                                     attributes=attribute,
                                     causal_relation_type=causal_relation_type,
@@ -153,7 +156,9 @@ class CausalRelationSpace:
         return causal_relations
 
     @staticmethod
-    def find_relations_satisfying_constraints(causal_relations, inclusion_constraints, exclusion_constraints=None):
+    def find_relations_satisfying_constraints(
+        causal_relations, inclusion_constraints, exclusion_constraints=None
+    ):
         """
         Finds all causal relations adhere to the constraints specified in constraints_dict
         :param inclusion_constraints: a dictionary consistent of fields that make up the CausalRelation named tuple
@@ -163,7 +168,10 @@ class CausalRelationSpace:
 
         for causal_relation in causal_relations:
             # relation not allowed in exclusion constraints
-            if exclusion_constraints is not None and causal_relation in exclusion_constraints:
+            if (
+                exclusion_constraints is not None
+                and causal_relation in exclusion_constraints
+            ):
                 continue
             constraints_satisfied = True
             # verify relation has the required constraints

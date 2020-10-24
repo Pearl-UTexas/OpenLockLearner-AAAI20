@@ -13,13 +13,10 @@ from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace imp
 )
 
 from openlockagents.OpenLockLearner.causal_classes.CausalRelationSpace import (
-    CausalRelationSpace
+    CausalRelationSpace,
 )
 from openlockagents.OpenLockLearner.causal_classes.CausalChain import CausalChainCompact
-from openlockagents.OpenLockLearner.util.common import (
-    TRUE_GRAPH_CPT_CHOICES,
-)
-
+from openlockagents.OpenLockLearner.util.common import TRUE_GRAPH_CPT_CHOICES
 
 
 def generate_chain_structure_space(
@@ -44,7 +41,11 @@ def generate_chain_structure_space(
         attribute_order=env.attribute_order,
         lever_index_mode="position",
     )
-    print("Generated {} chains in {}s".format(len(causal_chain_structure_space), time.time() - t))
+    print(
+        "Generated {} chains in {}s".format(
+            len(causal_chain_structure_space), time.time() - t
+        )
+    )
     return causal_chain_structure_space
 
 
@@ -115,7 +116,7 @@ def main():
     # causal_chain_space = generate(STATES_POSITION, ACTIONS_POSITION, lever_index_mode='position', mode='fixed', structure=CAUSAL_CHAIN_EDGES)
 
     # generate based on position and attribute
-    # todo: more cleanly define attributes x
+    # TODO(mjedmonds): more cleanly define attributes x
     # causal_chain_space = generate_causal_chains_fixed_structure_attributes(ATTRIBUTE_PRODUCT, ACTIONS_POSITION, lever_index_mode='position', structure=CAUSAL_CHAIN_EDGES)
 
     # arbitrary structure: generating

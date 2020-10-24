@@ -7,8 +7,8 @@ from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
     CausalObservation,
 )
 
-class UniqueIDManager:
 
+class UniqueIDManager:
     def __init__(self, states, actions, attributes, attribute_order):
         self.attribute_order = attribute_order
 
@@ -27,7 +27,11 @@ class UniqueIDManager:
             ] = create_birdirectional_dict(attributes[i], GRAPH_INT_TYPE)
 
     def convert_chain_to_target_type(self, causal_chain, target_type):
-        new_states, new_actions, new_attributes = self.convert_states_actions_attributes_to_target_type(
+        (
+            new_states,
+            new_actions,
+            new_attributes,
+        ) = self.convert_states_actions_attributes_to_target_type(
             target_type,
             causal_chain.states,
             causal_chain.actions,
@@ -54,7 +58,7 @@ class UniqueIDManager:
             perceptually_causal_relation.action = self.convert_action_to_target_type(
                 perceptually_causal_relation.action, target_type
             )
-            # todo: this only does one attribute
+            # TODO(mjedmonds): this only does one attribute
             perceptually_causal_relation.attributes = self.convert_attribute_tuple_to_target_type(
                 perceptually_causal_relation.attributes, target_type
             )

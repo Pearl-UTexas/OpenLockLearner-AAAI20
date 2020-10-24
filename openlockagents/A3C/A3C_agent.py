@@ -178,7 +178,7 @@ class ActorCriticAgent(Agent):
                                 scenario_name, trial_count, trial_selected
                             )
                         )
-                    # todo: MJE: what is the purpose of setting done to False here?
+                    # TODO(mjedmonds): MJE: what is the purpose of setting done to False here?
                     done = False
                     state = self.env.reset()
                     rnn_state = self.local_AC.state_init
@@ -345,7 +345,7 @@ class ActorCriticAgent(Agent):
                         )
                     sess.run(increment)  # Next global episode
 
-                # todo: MJE: should this line be here?
+                # TODO(mjedmonds): MJE: should this line be here?
                 self.update_dynamic_epsilon(
                     self.epsilon_min,
                     params["dynamic_epsilon_max"],

@@ -237,9 +237,7 @@ def main():
     params["use_physics"] = False
     params[
         "full_attempt_limit"
-    ] = (
-        True
-    )  # run to the full attempt limit, regardless of whether or not all solutions were found
+    ] = True  # run to the full attempt limit, regardless of whether or not all solutions were found
     params["train_num_iters"] = 100
     params["test_num_iters"] = 10
     # params['epsilon_decay'] = 0.9955
@@ -302,7 +300,7 @@ def main():
     agent = DDPGAgent(env, 1, 1, params, None, "init")
 
     # create session/trial/experiment
-    # TODO: passing a fake agent here is a hack
+    # TODO(mjedmonds): passing a fake agent here is a hack
     np.random.seed(random_seed)
     env.seed(random_seed)
     trial_selected = agent.setup_trial(

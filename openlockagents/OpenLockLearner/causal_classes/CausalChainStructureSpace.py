@@ -26,7 +26,7 @@ class CausalChainStructureSpace:
         structure,
         attribute_order,
         lever_index_mode,
-        print_messages=True
+        print_messages=True,
     ):
         # represents every possible permutation of conditional probability tables for each chain
         # self.conditional_probability_table_combinations = None
@@ -256,7 +256,7 @@ class CausalChainStructureSpace:
         for subchain_index in range(len(inclusion_constraints)):
             # if we have a constraint, find causal relations that adhere to the constraints
             if len(inclusion_constraints[subchain_index]) > 0:
-                # todo: refactor these to not directly access member classes
+                # TODO(mjedmonds): refactor these to not directly access member classes
                 causal_relations_satisfying_constraints = self.causal_relation_space.find_relations_satisfying_constraints(
                     self.subchain_indexed_domains[subchain_index],
                     inclusion_constraints=inclusion_constraints[subchain_index],
@@ -386,7 +386,7 @@ class CausalChainStructureSpace:
         return tuple([x.causal_relation_type[1] for x in self.causal_chains[index]])
 
     def get_actions(self, index):
-        # todo: 0 is hacked in here, need a way to index by the attribute we are indexing state on
+        # TODO(mjedmonds): 0 is hacked in here, need a way to index by the attribute we are indexing state on
         return tuple([x.action for x in self.causal_chains[index]])
 
     def get_attributes(self, index):
@@ -429,7 +429,9 @@ class CausalChainStructureSpace:
                 time.time() - t
             )
         )
-        self.pretty_print_causal_chain_idxs(self.true_chain_idxs, belief_space, print_messages=self.print_messages)
+        self.pretty_print_causal_chain_idxs(
+            self.true_chain_idxs, belief_space, print_messages=self.print_messages
+        )
 
     def check_for_duplicate_chains(self):
         check_for_duplicates(self.causal_chains)
@@ -559,7 +561,7 @@ class CausalChainStructureSpace:
         energies=None,
         q_values=None,
         belief_label="belief",
-        print_messages=True
+        print_messages=True,
     ):
         # suppress printing
         if not print_messages:
@@ -642,9 +644,13 @@ class CausalChainStructureSpace:
         causal_chains_to_print = []
         for idx in idxs:
             causal_chains_to_print.append(causal_chain_idxs[idx])
-        self.pretty_print_causal_chain_idxs(causal_chains_to_print, print_messages=self.print_messages)
+        self.pretty_print_causal_chain_idxs(
+            causal_chains_to_print, print_messages=self.print_messages
+        )
 
-    def pretty_print_causal_observations(self, causal_observations, print_messages=True):
+    def pretty_print_causal_observations(
+        self, causal_observations, print_messages=True
+    ):
         # suppress printing
         if not print_messages:
             return
@@ -671,7 +677,9 @@ class CausalChainStructureSpace:
             if chain_belief > threshold:
                 chains.append(causal_chain_idx)
         if len(chains) > 0:
-            self.pretty_print_causal_chain_idxs(chains, belief_space, print_messages=self.print_messages)
+            self.pretty_print_causal_chain_idxs(
+                chains, belief_space, print_messages=self.print_messages
+            )
 
     @staticmethod
     def check_for_equality_or_containment(item, target):

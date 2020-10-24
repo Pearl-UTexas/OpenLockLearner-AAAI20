@@ -1,5 +1,8 @@
 from openlockagents.OpenLockLearner.causal_classes.CausalChain import CausalChainCompact
-from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelation, CausalRelationType
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
+    CausalRelation,
+    CausalRelationType,
+)
 from openlock.settings_scenario import select_scenario
 from openlock.settings_trial import LEVER_CONFIGS
 
@@ -8,12 +11,11 @@ from openlockagents.OpenLockLearner.util.common import GRAPH_INT_TYPE
 from openlock.common import ENTITY_STATES, Action
 
 
-
 def generate_solutions_by_trial(scenario_name, trial_name):
     solution_chains = []
     scenario = select_scenario(scenario_name, use_physics=False)
 
-    # todo: extract these from the environment/scenario somehow. these are hard-coded
+    # TODO(mjedmonds): extract these from the environment/scenario somehow. these are hard-coded
     lever_cpt_choice = GRAPH_INT_TYPE(1)
     door_cpt_choice = GRAPH_INT_TYPE(0)
     lever_ending_state = GRAPH_INT_TYPE(ENTITY_STATES["LEVER_PUSHED"])
@@ -64,7 +66,7 @@ def generate_solutions_by_trial_causal_relation(scenario_name, trial_name):
     solution_chains = []
     scenario = select_scenario(scenario_name, use_physics=False)
 
-    # todo: extract these from the environment/scenario somehow. these are hard-coded
+    # TODO(mjedmonds): extract these from the environment/scenario somehow. these are hard-coded
     lever_causal_relation_type = CausalRelationType.one_to_zero
     door_causal_relation_type = CausalRelationType.zero_to_one
 
@@ -92,7 +94,7 @@ def generate_solutions_by_trial_causal_relation(scenario_name, trial_name):
                     action=Action(action_name, attributes[0], None),
                     attributes=attributes,
                     causal_relation_type=causal_relation,
-                    precondition=precondition
+                    precondition=precondition,
                 )
             )
             # setup precondition for next link in chain

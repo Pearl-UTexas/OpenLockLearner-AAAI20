@@ -111,7 +111,7 @@ class DAgent(Agent):
     def save(self, sess, name):
         self.saver.save(sess, name)
 
-    # todo: this should probably be associated with the dqn/ddqn agents, but they both share this function
+    # TODO(mjedmonds): this should probably be associated with the dqn/ddqn agents, but they both share this function
     # code to run a computer trial
     def run_trial_dqn(
         self,

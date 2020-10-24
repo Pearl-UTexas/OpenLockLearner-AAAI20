@@ -93,7 +93,9 @@ class Agent(object):
         :param random_seed: default: None
         :return: Nothing
         """
-        assert project_src is not None, "Must specify a root directory for project source code"
+        assert (
+            project_src is not None
+        ), "Must specify a root directory for project source code"
         self.human = human
         self.writer = SubjectWriter(self.data_path)
         self.subject_id = self.writer.subject_id
@@ -121,8 +123,7 @@ class Agent(object):
         # copy the entire code base; this is unnecessary but prevents worrying about a particular
         # source code version when trying to reproduce exact parameters
         write_source_code(
-            project_src,
-            self.writer.subject_path + "/src/",
+            project_src, self.writer.subject_path + "/src/",
         )
 
     # code to run before human and computer trials
@@ -200,7 +201,7 @@ class Agent(object):
 
         agent.finished = True
 
-    # todo: refactor/consolidate this with opt['trial_success'] returned by env.step()
+    # TODO(mjedmonds): refactor/consolidate this with opt['trial_success'] returned by env.step()
     def determine_trial_finished(self, attempt_limit=None):
         if attempt_limit is None:
             attempt_limit = self.env.attempt_limit
@@ -390,7 +391,9 @@ class Agent(object):
         """
         if obs_space is None:
             obs_space = ObservationSpace(len(self.env.world_def.get_levers()))
-        sim_state, sim_labels = obs_space.create_discrete_observation_from_simulator(self.env)
+        sim_state, sim_labels = obs_space.create_discrete_observation_from_simulator(
+            self.env
+        )
         fsm_state, fsm_labels = obs_space.create_discrete_observation_from_fsm(self.env)
         try:
             assert sim_state == fsm_state
@@ -418,7 +421,7 @@ class Agent(object):
         ax = plt.gca()
         fig.set_size_inches(width, height)
         plt.xlim((0, len(rewards)))
-        r, = plt.plot(
+        (r,) = plt.plot(
             rewards,
             color="red",
             linestyle="-",
@@ -426,7 +429,7 @@ class Agent(object):
             label="reward",
             alpha=0.5,
         )
-        ave_r, = plt.plot(
+        (ave_r,) = plt.plot(
             moving_avg, color="blue", linestyle="-", linewidth=0.8, label="avg_reward"
         )
         # e, = plt.plot(epsilons, color='blue', linestyle='--', alpha=0.5, label='epsilon')
@@ -451,7 +454,7 @@ class Agent(object):
         ax = plt.gca()
         gcf.set_size_inches(width, height)
         plt.xlim((0, len(rewards)))
-        r, = plt.plot(
+        (r,) = plt.plot(
             rewards,
             color="red",
             linestyle="-",
@@ -459,7 +462,7 @@ class Agent(object):
             label="reward",
             alpha=0.5,
         )
-        ave_r, = plt.plot(
+        (ave_r,) = plt.plot(
             moving_avg, color="blue", linestyle="-", linewidth=0.8, label="avg_reward"
         )
         # e, = plt.plot(epsilons, color='blue', linestyle='--', alpha=0.5, label='epsilon')
@@ -553,7 +556,7 @@ class Agent(object):
                 linestyle="--",
                 alpha=0.3,
             )
-        r, = plt.plot(
+        (r,) = plt.plot(
             rewards,
             color="red",
             linestyle="-",
@@ -561,7 +564,7 @@ class Agent(object):
             label="reward",
             alpha=0.5,
         )
-        ave_r, = plt.plot(
+        (ave_r,) = plt.plot(
             moving_avg, color="blue", linestyle="-", linewidth=0.8, label="avg_reward"
         )
         # e, = plt.plot(epsilons, color='blue', linestyle='--', alpha=0.5, label='epsilon')

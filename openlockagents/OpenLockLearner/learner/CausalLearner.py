@@ -13,7 +13,6 @@ from openlockagents.OpenLockLearner.learner.ChainPruner import ChainPruner
 from openlockagents.common.common import DEBUGGING
 
 
-
 class CausalLearner:
     def __init__(self, print_messages=True):
         self.chain_pruner = ChainPruner(print_messages)
@@ -35,7 +34,9 @@ class CausalLearner:
     ):
         function_start_time = time.time()
 
-        chain_idxs_consistent = causal_chain_space.bottom_up_belief_space.get_idxs_with_belief_above_threshold(print_msg=False)
+        chain_idxs_consistent = causal_chain_space.bottom_up_belief_space.get_idxs_with_belief_above_threshold(
+            print_msg=False
+        )
         chain_idxs_removed = []
 
         prev_num_chains_with_belief_above_threshold = (
@@ -43,8 +44,15 @@ class CausalLearner:
         )
 
         if prune_inconsitent_chains:
-            # todo: this only processes one causal observation; cannot handle multiple fluent changes in one time step
-            chain_idxs_consistent, chain_idxs_removed = self.chain_pruner.prune_inconsistent_chains_v2(causal_chain_space=causal_chain_space, causal_chain_idxs=causal_chain_idxs, action_sequences_to_prune=action_sequences_to_prune)
+            # TODO(mjedmonds): this only processes one causal observation; cannot handle multiple fluent changes in one time step
+            (
+                chain_idxs_consistent,
+                chain_idxs_removed,
+            ) = self.chain_pruner.prune_inconsistent_chains_v2(
+                causal_chain_space=causal_chain_space,
+                causal_chain_idxs=causal_chain_idxs,
+                action_sequences_to_prune=action_sequences_to_prune,
+            )
             # chain_idxs_consistent_v1, chain_idxs_removed_v1 = self.chain_pruner.prune_inconsistent_chains(
             #     causal_chain_space,
             #     causal_chain_idxs,
@@ -59,7 +67,7 @@ class CausalLearner:
                 trial_count,
                 attempt_count,
                 "REMOVED {} CHAINS".format(len(chain_idxs_removed)),
-                self.print_messages
+                self.print_messages,
             )
             # if 0 < len(chain_idxs_removed) < 100:
             #     causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
@@ -75,7 +83,7 @@ class CausalLearner:
             trial_count,
             attempt_count,
             "Updating beliefs took {:0.6f}s".format(time.time() - start_time),
-            self.print_messages
+            self.print_messages,
         )
 
         # the remainder of this function is bookkeeping
@@ -91,18 +99,21 @@ class CausalLearner:
         else:
             start_msg = "Eliminated {} chains".format(num_chains_pruned)
 
-        assert num_chains_pruned == len(chain_idxs_removed), "Number of chains removed is incorrect"
+        assert num_chains_pruned == len(
+            chain_idxs_removed
+        ), "Number of chains removed is incorrect"
 
         print_message(
             trial_count,
             attempt_count,
             "{}. {} chains pruned across all attempts. Previous number chains above threshold: {} current: {}".format(
                 start_msg,
-                len(causal_chain_space.structure_space.causal_chains) - num_chains_pruned,
+                len(causal_chain_space.structure_space.causal_chains)
+                - num_chains_pruned,
                 prev_num_chains_with_belief_above_threshold,
                 num_chains_with_belief_above_threshold,
             ),
-            self.print_messages
+            self.print_messages,
         )
         print_message(
             trial_count,
@@ -110,7 +121,7 @@ class CausalLearner:
             "Model update/pruning took {:0.6f}s".format(
                 time.time() - function_start_time
             ),
-            self.print_messages
+            self.print_messages,
         )
         return map_chains, num_chains_pruned, chain_idxs_consistent, chain_idxs_removed
 
@@ -124,14 +135,32 @@ class CausalLearner:
         for i in range(len(action_sequence)):
             action = action_sequence[i]
             prev_state, cur_state = intervention_outcomes[i]
-            causal_observations = CausalLearner.create_causal_observation(env, action, cur_state, prev_state, causal_observations, causal_change_idx, trial_count, attempt_count)
+            causal_observations = CausalLearner.create_causal_observation(
+                env,
+                action,
+                cur_state,
+                prev_state,
+                causal_observations,
+                causal_change_idx,
+                trial_count,
+                attempt_count,
+            )
         return causal_observations
 
     @staticmethod
-    def create_causal_observation(env, action, cur_state, prev_state, causal_observations, causal_change_idx, trial_count, attempt_count):
+    def create_causal_observation(
+        env,
+        action,
+        cur_state,
+        prev_state,
+        causal_observations,
+        causal_change_idx,
+        trial_count,
+        attempt_count,
+    ):
         state_diff = cur_state - prev_state
         state_change_occurred = len(state_diff) > 0
-        # todo: generalize to more than 1 state change
+        # TODO(mjedmonds): generalize to more than 1 state change
         if len(state_diff) > 2:
             print_message(
                 trial_count,
@@ -146,10 +175,7 @@ class CausalLearner:
         # We could take an action with an effect, take an action with no effect, then take an action with an effect.
         # We want the precondition to carry over from the first action, so we need to find the preconditon of the last action with an effect
         for i in reversed(range(0, len(causal_observations))):
-            if (
-                causal_observations[i].causal_relation.causal_relation_type
-                is not None
-            ):
+            if causal_observations[i].causal_relation.causal_relation_type is not None:
                 precondition = (
                     causal_observations[i].causal_relation.attributes,
                     causal_observations[i].causal_relation.causal_relation_type[1],
@@ -158,9 +184,9 @@ class CausalLearner:
                 break
 
         if state_change_occurred:
-            # todo: refactor to include door_lock
+            # TODO(mjedmonds): refactor to include door_lock
             state_diff = [x for x in state_diff if x[0] != "door_lock"]
-            # todo: this only handles a single state_diff per timestep
+            # TODO(mjedmonds): this only handles a single state_diff per timestep
             assert (
                 len(state_diff) < 2
             ), "Multiple fluents changing at each time step not yet implemented"

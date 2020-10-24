@@ -72,9 +72,7 @@ def main():
     params["use_physics"] = False
     params[
         "full_attempt_limit"
-    ] = (
-        False
-    )  # run to the full attempt limit, regardless of whether or not all solutions were found
+    ] = False  # run to the full attempt limit, regardless of whether or not all solutions were found
     params["num_training_iters"] = 200
     params["num_training_trials"] = params["train_num_trials"]
     params["train_attempt_limit"] = 700
@@ -108,7 +106,7 @@ def main():
     agent = DDQNAgent(env, 1, 1, params)
 
     # create session/trial/experiment
-    # TODO: passing a fake agent here is a hack
+    # TODO(mjedmonds): passing a fake agent here is a hack
     np.random.seed(random_seed)
     env.seed(random_seed)
 

@@ -1,5 +1,5 @@
 {
-  "DATA_BASE_PATH":"~/Desktop/OpenLockLearnerData",
+  "DATA_BASE_PATH": "/home/joschnei/OpenLockLearner-AAAI20/data",
   "CAUSAL_CHAIN_PICKLE": "/openlocklearner_causal_chain_space.pickle",
   "TWO_SOLUTION_SCHEMA_PICKLE": "/two_solution_schemas.pickle",
   "THREE_SOLUTION_SCHEMA_PICKLE": "/three_solution_schemas.pickle",

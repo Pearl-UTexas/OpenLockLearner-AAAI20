@@ -84,9 +84,12 @@ def instantiate_schemas_multiproc(
             for i in range(1, len(slicing_indices))
         )
         for return_tuple in return_tuples:
-            returned_schemas, returned_beliefs, starting_index, ending_index = (
-                return_tuple
-            )
+            (
+                returned_schemas,
+                returned_beliefs,
+                starting_index,
+                ending_index,
+            ) = return_tuple
             # copy beliefs from results
             instantiated_schemas.extend(returned_schemas)
             instantiated_schema_beliefs.extend(returned_beliefs)
@@ -95,12 +98,12 @@ def instantiate_schemas_multiproc(
 
 
 class Structures:
-    # Todo: implement abstract wrapper for all structures (schemas, chains, etc)
+    # TODO(mjedmonds): implement abstract wrapper for all structures (schemas, chains, etc)
     pass
 
 
 class Beliefs:
-    # Todo: implement abstract wrapper for all beliefs (schemas, chains, etc) - this is basically done in BeliefManager
+    # TODO(mjedmonds): implement abstract wrapper for all beliefs (schemas, chains, etc) - this is basically done in BeliefManager
     pass
 
 
@@ -156,9 +159,11 @@ class AtomicSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
 
         # compute graph edit distance between solution and atomic schemas
         # update the beliefs of the atomic schema with the lowest graph edit distance to the solution schema
-        min_atomic_schema, min_atmoic_belief, min_atomic_index = self.find_closest_schema_match(
-            solution_graph
-        )
+        (
+            min_atomic_schema,
+            min_atmoic_belief,
+            min_atomic_index,
+        ) = self.find_closest_schema_match(solution_graph)
         # update the dirichlet distribution of the min atomic schema
         self.belief_space.update_alpha(min_atomic_index)
 
@@ -188,7 +193,10 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
         )
 
         if multiproc:
-            instantiated_schemas, instantiated_schema_beliefs = instantiate_schemas_multiproc(
+            (
+                instantiated_schemas,
+                instantiated_schema_beliefs,
+            ) = instantiate_schemas_multiproc(
                 abstract_schema_space=self,
                 causal_chain_structure_space=causal_chain_structure_space,
                 instantiation_index_mappings=instantiation_index_mappings,
@@ -197,7 +205,12 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
                 excluded_chain_idxs=excluded_chain_idxs,
             )
         else:
-            instantiated_schemas, instantiated_schema_beliefs, _, _ = self.instantiate_schemas_common(
+            (
+                instantiated_schemas,
+                instantiated_schema_beliefs,
+                _,
+                _,
+            ) = self.instantiate_schemas_common(
                 causal_chain_structure_space=causal_chain_structure_space,
                 instantiation_index_mappings=instantiation_index_mappings,
                 solutions_executed=solutions_executed,
@@ -216,7 +229,7 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
         )
         instantiated_schema_beliefs = np.array(instantiated_schema_beliefs)
 
-        # todo: does this renormalization make sense? Should we naturally have a normalized probability?
+        # TODO(mjedmonds): does this renormalization make sense? Should we naturally have a normalized probability?
         instantiated_schema_beliefs = renormalize(instantiated_schema_beliefs)
 
         assert verify_valid_probability_distribution(
@@ -244,8 +257,8 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
             abstract_schema = self.structure_space[i]
             abstract_schema_belief = self.belief_space[i]
 
-            # todo: this is a hack to skip schemas that don't have a chain defined for every path possible
-            # todo: this is a minor bug in schema generation - the graph adheres to constraints but we don't properly store the chains - none of these are solutions and therefore their dirichlets are never updated
+            # TODO(mjedmonds): this is a hack to skip schemas that don't have a chain defined for every path possible
+            # TODO(mjedmonds): this is a minor bug in schema generation - the graph adheres to constraints but we don't properly store the chains - none of these are solutions and therefore their dirichlets are never updated
             if len(abstract_schema.chains) != n_chains_in_schema:
                 continue
 
@@ -298,13 +311,15 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
         # for every structure, find the closet matching atomic schema and adopt its belief
         for i in range(len(self.structure_space)):
             abstract_schema = self.structure_space[i]
-            min_atomic_schema, min_atomic_belief, min_atomic_index = atomic_schema_space.find_closest_schema_match(
-                abstract_schema.graph
-            )
+            (
+                min_atomic_schema,
+                min_atomic_belief,
+                min_atomic_index,
+            ) = atomic_schema_space.find_closest_schema_match(abstract_schema.graph)
             self.belief_space[i] = min_atomic_belief
 
-        # todo: we basically expand dimensions of a 2-value probability into n-value distribution - so we need to normalize
-        # todo: if we had a proper conditional term, we could multiply it to get a valid distribution without normalization
+        # TODO(mjedmonds): we basically expand dimensions of a 2-value probability into n-value distribution - so we need to normalize
+        # TODO(mjedmonds): if we had a proper conditional term, we could multiply it to get a valid distribution without normalization
         self.belief_space.renormalize_beliefs(multiproc=multiproc)
 
         assert verify_valid_probability_distribution(
@@ -389,7 +404,11 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
     def update_bottom_up_beliefs(self, attribute_order, trial_name, multiproc=False):
 
         if not multiproc:
-            self.bottom_up_belief_space.beliefs, _, _ = self.update_bottom_up_beliefs_common(
+            (
+                self.bottom_up_belief_space.beliefs,
+                _,
+                _,
+            ) = self.update_bottom_up_beliefs_common(
                 attribute_order,
                 trial_name,
                 starting_idx=0,
@@ -468,7 +487,11 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
             # old way - belief is this chain's belief count divided by normalization factor
             # causal_chain.belief = causal_chain.belief_count / normalization_factor
 
-        return self.bottom_up_belief_space.beliefs[starting_idx:ending_idx], starting_idx, ending_idx
+        return (
+            self.bottom_up_belief_space.beliefs[starting_idx:ending_idx],
+            starting_idx,
+            ending_idx,
+        )
 
     def update_top_down_beliefs(self, instantiated_schema_space, multiproc=False):
         # mark all instantiated schemas that contain pruned causal chain idxs as invalid - 0 belief
@@ -490,7 +513,7 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
                         chain_index
                     ] += instantiated_schema_space.belief_space[instantiated_schema_idx]
 
-        # todo: does it make sense to renormalize here?
+        # TODO(mjedmonds): does it make sense to renormalize here?
         self.top_down_belief_space.renormalize_beliefs(multiproc=multiproc)
 
         assert verify_valid_probability_distribution(
