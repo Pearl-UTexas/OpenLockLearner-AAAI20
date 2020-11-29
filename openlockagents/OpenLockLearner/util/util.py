@@ -1,14 +1,12 @@
+from openlock.common import ENTITY_STATES, Action
+from openlock.settings_scenario import select_scenario
+from openlock.settings_trial import LEVER_CONFIGS
 from openlockagents.OpenLockLearner.causal_classes.CausalChain import CausalChainCompact
 from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
     CausalRelation,
     CausalRelationType,
 )
-from openlock.settings_scenario import select_scenario
-from openlock.settings_trial import LEVER_CONFIGS
-
 from openlockagents.OpenLockLearner.util.common import GRAPH_INT_TYPE
-
-from openlock.common import ENTITY_STATES, Action
 
 
 def generate_solutions_by_trial(scenario_name, trial_name):
@@ -38,7 +36,14 @@ def generate_solutions_by_trial(scenario_name, trial_name):
             else:
                 # determine position of lever based on role
                 for trial_lever in trial_levers:
-                    if trial_lever.LeverRoleEnum == state_name:
+                    if (
+                        getattr(
+                            trial_lever,
+                            "LeverRole",
+                            getattr(trial_lever, "LeverRoleEnum"),
+                        )
+                        == state_name
+                    ):
                         state_name = trial_lever.LeverPosition.name
                 ending_state = lever_ending_state
                 cpt_choice = lever_cpt_choice
@@ -70,7 +75,7 @@ def generate_solutions_by_trial_causal_relation(scenario_name, trial_name):
     lever_causal_relation_type = CausalRelationType.one_to_zero
     door_causal_relation_type = CausalRelationType.zero_to_one
 
-    scenario_solutions = scenario.solutions
+    scenario_solutions = scenario.SOLUTIONS
     trial_levers = LEVER_CONFIGS[trial_name]
     for scenario_solution in scenario_solutions:
         solution_chain = []
@@ -83,7 +88,14 @@ def generate_solutions_by_trial_causal_relation(scenario_name, trial_name):
             else:
                 # determine position of lever based on role
                 for trial_lever in trial_levers:
-                    if trial_lever.LeverRoleEnum == state_name:
+                    if (
+                        getattr(
+                            trial_lever,
+                            "LeverRole",
+                            getattr(trial_lever, "LeverRoleEnum", None),
+                        )
+                        == state_name
+                    ):
                         state_name = trial_lever.LeverPosition.name
                 causal_relation = lever_causal_relation_type
 

@@ -11,3 +11,4 @@ assets
 *.pickle
 launch.json
 settings.json
+**/data/**

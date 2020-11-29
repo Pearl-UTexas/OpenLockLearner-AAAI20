@@ -1,29 +1,28 @@
-import time
-import seaborn as sns
-import matplotlib.pyplot as plt
 import math
 import os
+import time
 
-# must include this to unpickle properly
-
-from openlockagents.OpenLockLearner.learner.OpenLockLearnerAgent import (
-    OpenLockLearnerAgent,
-)
+import matplotlib.pyplot as plt
+import seaborn as sns
+from openlock.common import generate_effect_probabilities
+from openlock.settings_trial import PARAMS
 from openlockagents.common.agent import Agent
-
 from openlockagents.OpenLockLearner.io.causal_structure_io import (
     load_causal_structures_from_file,
 )
+from openlockagents.OpenLockLearner.learner.OpenLockLearnerAgent import (
+    OpenLockLearnerAgent,
+)
+from openlockagents.OpenLockLearner.main.generate_causal_structures import (
+    generate_causal_structures,
+)
 from openlockagents.OpenLockLearner.util.common import (
-    parse_arguments,
     AblationParams,
-    setup_structure_space_paths
+    parse_arguments,
+    setup_structure_space_paths,
 )
 
-from openlockagents.OpenLockLearner.main.generate_causal_structures import generate_causal_structures
-
-from openlock.settings_trial import PARAMS
-from openlock.common import generate_effect_probabilities
+# must include this to unpickle properly
 
 
 def plot_num_pruned(num_chains_pruned, filename):
@@ -49,7 +48,7 @@ def main():
     ablation_params = AblationParams()
 
     if args.savedir is None:
-        data_dir = "~/Desktop/Mass/OpenLockLearningResults/cc3-ce4_subjects"
+        data_dir = "/home/joschnei/OpenLock/agent/data/OpenLockLearningResults/cc3-ce4_subjects"
     else:
         data_dir = args.savedir
     if args.scenario is None:
@@ -99,7 +98,9 @@ def main():
     # params["intervention_mode"] = 'attempt'
     # setup ablations
     params["ablation_params"] = ablation_params
-    params["effect_probabilities"] = generate_effect_probabilities(l0=1, l1=1, l2=1, door=1)
+    params["effect_probabilities"] = generate_effect_probabilities(
+        l0=1, l1=1, l2=1, door=1
+    )
 
     params["using_ids"] = False
     params["multiproc"] = False
@@ -111,7 +112,11 @@ def main():
     env = Agent.pre_instantiation_setup(params, bypass_confirmation)
     env.lever_index_mode = "position"
 
-    causal_chain_structure_space_path, two_solution_schemas_structure_space_path, three_solution_schemas_structure_space_path = setup_structure_space_paths()
+    (
+        causal_chain_structure_space_path,
+        two_solution_schemas_structure_space_path,
+        three_solution_schemas_structure_space_path,
+    ) = setup_structure_space_paths()
 
     if not os.path.exists(causal_chain_structure_space_path):
         print("WARNING: no hypothesis space files found, generating hypothesis spaces")
@@ -129,7 +134,11 @@ def main():
         env = Agent.make_env(params)
         env.lever_index_mode = "position"
 
-        causal_chain_structure_space, two_solution_schemas, three_solution_schemas = load_causal_structures_from_file(
+        (
+            causal_chain_structure_space,
+            two_solution_schemas,
+            three_solution_schemas,
+        ) = load_causal_structures_from_file(
             causal_chain_structure_space_path,
             two_solution_schemas_structure_space_path,
             three_solution_schemas_structure_space_path,
@@ -153,7 +162,10 @@ def main():
         agent.training_trial_order = possible_trials
         # training
         for trial_name in possible_trials:
-            trial_selected, chain_idxs_pruned_from_initial_observation = agent.setup_trial(
+            (
+                trial_selected,
+                chain_idxs_pruned_from_initial_observation,
+            ) = agent.setup_trial(
                 scenario_name=params["train_scenario_name"],
                 action_limit=params["train_action_limit"],
                 attempt_limit=params["train_attempt_limit"],
@@ -169,8 +181,14 @@ def main():
             )
 
         # testing
-        if params["test_scenario_name"] == "CE4" or params["test_scenario_name"] == "CC4":
-            trial_selected, chain_idxs_pruned_from_initial_observation = agent.setup_trial(
+        if (
+            params["test_scenario_name"] == "CE4"
+            or params["test_scenario_name"] == "CC4"
+        ):
+            (
+                trial_selected,
+                chain_idxs_pruned_from_initial_observation,
+            ) = agent.setup_trial(
                 scenario_name=params["test_scenario_name"],
                 action_limit=params["test_action_limit"],
                 attempt_limit=params["test_attempt_limit"],
