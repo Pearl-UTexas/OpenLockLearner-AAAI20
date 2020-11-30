@@ -37,11 +37,7 @@ def generate_solutions_by_trial(scenario_name, trial_name):
                 # determine position of lever based on role
                 for trial_lever in trial_levers:
                     if (
-                        getattr(
-                            trial_lever,
-                            "LeverRole",
-                            getattr(trial_lever, "LeverRoleEnum"),
-                        )
+                        get_one_of(trial_lever, ["LeverRole", "LeverRoleEnum"])
                         == state_name
                     ):
                         state_name = trial_lever.LeverPosition.name
@@ -67,6 +63,14 @@ def generate_solutions_by_trial(scenario_name, trial_name):
     return solution_chains
 
 
+def get_one_of(object, attrs):
+    for attr in attrs:
+        out = getattr(object, attr, None)
+        if out is not None:
+            return out
+    raise ValueError("None of the attrs in object")
+
+
 def generate_solutions_by_trial_causal_relation(scenario_name, trial_name):
     solution_chains = []
     scenario = select_scenario(scenario_name, use_physics=False)
@@ -75,7 +79,7 @@ def generate_solutions_by_trial_causal_relation(scenario_name, trial_name):
     lever_causal_relation_type = CausalRelationType.one_to_zero
     door_causal_relation_type = CausalRelationType.zero_to_one
 
-    scenario_solutions = scenario.SOLUTIONS
+    scenario_solutions = get_one_of(scenario, ["SOLUTIONS", "solutions"])
     trial_levers = LEVER_CONFIGS[trial_name]
     for scenario_solution in scenario_solutions:
         solution_chain = []
@@ -89,11 +93,7 @@ def generate_solutions_by_trial_causal_relation(scenario_name, trial_name):
                 # determine position of lever based on role
                 for trial_lever in trial_levers:
                     if (
-                        getattr(
-                            trial_lever,
-                            "LeverRole",
-                            getattr(trial_lever, "LeverRoleEnum", None),
-                        )
+                        get_one_of(trial_lever, ["LeverRole", "LeverRoleEnum"])
                         == state_name
                     ):
                         state_name = trial_lever.LeverPosition.name
