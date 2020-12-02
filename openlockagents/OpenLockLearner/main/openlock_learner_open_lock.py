@@ -116,7 +116,7 @@ def main():
 
     if not os.path.exists(causal_chain_structure_space_path):
         print("WARNING: no hypothesis space files found, generating hypothesis spaces")
-        generate_causal_structures()
+        generate_causal_structures(max_delay=params.get("max_delay", 0))
 
     interventions_predefined = []
     # interventions_predefined = [("push_LOWERLEFT", "push_UPPERRIGHT", "push_door")]

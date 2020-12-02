@@ -1,5 +1,3 @@
-import os
-
 from openlockagents.common.agent import Agent
 from openlockagents.OpenLockLearner.causal_classes.hypothesis_space import (
     generate_hypothesis_space,
@@ -17,10 +15,10 @@ def main():
     generate_causal_structures()
 
 
-def generate_causal_structures():
+def generate_causal_structures(max_delay: int = 0):
     params = dict()
     params["use_physics"] = False
-    params["train_scenario_name"] = "CE3"
+    params["train_scenario_name"] = "CE3D"
     params["src_dir"] = None
 
     env = Agent.pre_instantiation_setup(params, bypass_confirmation=True)
@@ -45,6 +43,7 @@ def generate_causal_structures():
         fluents=FLUENTS,
         fluent_states=FLUENT_STATES,
         perceptually_causal_relations=None,
+        max_delay=max_delay,
     )
     return
 

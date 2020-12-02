@@ -1,16 +1,13 @@
 import time
 
-from openlockagents.OpenLockLearner.causal_classes.SchemaStructureSpace import (
-    AbstractSchemaStructureSpace,
-)
-from openlockagents.OpenLockLearner.generator.chain_generator import (
-    generate_chain_structure_space,
-)
+from openlockagents.OpenLockLearner.causal_classes.SchemaStructureSpace import \
+    AbstractSchemaStructureSpace
+from openlockagents.OpenLockLearner.generator.chain_generator import \
+    generate_chain_structure_space
 from openlockagents.OpenLockLearner.io.causal_structure_io import (
-    write_causal_structure_space,
-    write_schema_structure_space,
-)
-from openlockagents.OpenLockLearner.util.common import ACTIONS, FLUENT_STATES, FLUENTS
+    write_causal_structure_space, write_schema_structure_space)
+from openlockagents.OpenLockLearner.util.common import (ACTIONS, FLUENT_STATES,
+                                                        FLUENTS)
 
 
 def generate_hypothesis_space(
@@ -24,7 +21,7 @@ def generate_hypothesis_space(
     fluents=FLUENTS,
     fluent_states=FLUENT_STATES,
     perceptually_causal_relations=None,
-    max_delay: int = 1,
+    max_delay: int = 0,
 ):
     t = time.time()
     causal_chain_structure_space = generate_chain_structure_space(

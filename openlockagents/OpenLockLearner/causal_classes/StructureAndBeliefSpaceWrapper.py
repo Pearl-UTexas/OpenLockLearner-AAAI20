@@ -309,11 +309,9 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
         # for every structure, find the closet matching atomic schema and adopt its belief
         for i in range(len(self.structure_space)):
             abstract_schema = self.structure_space[i]
-            (
-                min_atomic_schema,
-                min_atomic_belief,
-                min_atomic_index,
-            ) = atomic_schema_space.find_closest_schema_match(abstract_schema.graph)
+            (_, min_atomic_belief, _,) = atomic_schema_space.find_closest_schema_match(
+                abstract_schema.graph
+            )
             self.belief_space[i] = min_atomic_belief
 
         # TODO(mjedmonds): we basically expand dimensions of a 2-value probability into n-value distribution - so we need to normalize
@@ -396,16 +394,12 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
             self.bottom_up_belief_space.num_idxs_with_belief_above_threshold
             < SANITY_CHECK_ELEMENT_LIMIT
         ):
-            all_chain_idxs_have_belief_above_threshold = self.bottom_up_belief_space.verify_true_chain_idxs_have_belief_above_threshold(
+            assert self.bottom_up_belief_space.verify_true_chain_idxs_have_belief_above_threshold(
                 self.structure_space.true_chain_idxs
             )
-            if not all_chain_idxs_have_belief_above_threshold:
-                assert all_chain_idxs_have_belief_above_threshold
-            num_idxs_correct = (
+            assert (
                 self.bottom_up_belief_space.verify_num_idxs_with_belief_above_threshold_is_correct()
             )
-            if not num_idxs_correct:
-                assert num_idxs_correct
 
         return max_chains
 

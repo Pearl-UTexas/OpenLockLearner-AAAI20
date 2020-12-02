@@ -1,4 +1,5 @@
 import logging
+from multiprocessing import Value
 
 from openlock.common import ENTITY_STATES, Action
 from openlock.settings_scenario import select_scenario
@@ -84,17 +85,39 @@ def generate_solutions_by_trial_causal_relation(scenario_name, trial_name):
     scenario_solutions = get_one_of(scenario, ["SOLUTIONS", "solutions"])
     trial_levers = LEVER_CONFIGS[trial_name]
     for scenario_solution in scenario_solutions:
-        # Action to use for wildcard actions.
-        default_action = [action for action in scenario_solution if action.name != "*"][
-            0
-        ].name
         solution_chain = []
         precondition = None
+
+        attributes = None
+        causal_relation = None
+        delay = 0
+
+        first = True
+
+        # We can't know what the delay is until we see the next action. So we don't create the
+        # causal relation for an action until we see the next non-wildcard action.
         for action_log in scenario_solution:
             action_name = action_log.name
             if action_name == "*":
-                action_name = default_action
-            logging.debug(f"action_name={action_name}")
+                if first:
+                    raise ValueError("Solutions cannot start with a wildcard action.")
+                delay += 1
+                continue
+            elif not first:
+                solution_chain.append(
+                    CausalRelation(
+                        action=Action(name="push", obj=attributes[0], params=None),
+                        attributes=attributes,
+                        causal_relation_type=causal_relation,
+                        precondition=precondition,
+                        delay=delay,
+                    )
+                )
+                delay = 0
+                precondition = (attributes, causal_relation[1])
+
+            first = False
+
             state_name = action_name.split("_")[1]
             if state_name == "door":
                 causal_relation = door_causal_relation_type
@@ -108,17 +131,18 @@ def generate_solutions_by_trial_causal_relation(scenario_name, trial_name):
                         state_name = trial_lever.LeverPosition.name
                 causal_relation = lever_causal_relation_type
 
-            action_name = "push"
             attributes = (state_name, "GREY")
-            solution_chain.append(
-                CausalRelation(
-                    action=Action(action_name, attributes[0], None),
-                    attributes=attributes,
-                    causal_relation_type=causal_relation,
-                    precondition=precondition,
-                )
+
+        # Append the last action
+        solution_chain.append(
+            CausalRelation(
+                action=Action("push", attributes[0], None),
+                attributes=attributes,
+                causal_relation_type=causal_relation,
+                precondition=precondition,
+                delay=delay,
             )
-            # setup precondition for next link in chain
-            precondition = (attributes, causal_relation[1])
+        )
+
         solution_chains.append(tuple(solution_chain))
     return solution_chains

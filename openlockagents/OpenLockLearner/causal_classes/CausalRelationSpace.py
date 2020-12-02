@@ -36,11 +36,11 @@ class CausalRelationSpace:
         fluent_states,
         perceptually_causal_relations=None,
         true_chains=None,
-        max_delay=1,
+        max_delay: int = 0,
     ):
         self.attributes = list(itertools.product(*attributes))
         self.actions = actions
-        self.delays = list(range(max_delay))
+        self.delays = list(range(max_delay + 1))
 
         preconditions_with_dependencies = list(
             itertools.product(self.attributes, fluent_states)

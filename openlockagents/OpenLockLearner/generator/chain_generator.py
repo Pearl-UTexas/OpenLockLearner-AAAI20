@@ -21,7 +21,7 @@ def generate_chain_structure_space(
     fluent_states,
     perceptually_causal_relations,
     structure,
-    max_delay: int = 1,
+    max_delay: int = 0,
 ):
     t = time.time()
     causal_relation_space = CausalRelationSpace(
