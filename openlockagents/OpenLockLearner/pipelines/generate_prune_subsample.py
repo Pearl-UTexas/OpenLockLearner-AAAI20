@@ -1,7 +1,21 @@
-import time
 import itertools
-import gym
+import time
 
+import gym
+from openlock.settings_trial import PARAMS
+from openlockagents.common.io.log_io import load_solutions_by_trial
+from openlockagents.OpenLockLearner.generator.chain_generator import (
+    generate_causal_chains_fixed_structure_attributes,
+    generate_true_chains,
+)
+from openlockagents.OpenLockLearner.io.causal_structure_io import (
+    load_causal_chain_space,
+)
+from openlockagents.OpenLockLearner.learner.ChainPruner import prune_random_subsample
+from openlockagents.OpenLockLearner.perceptual_causality_python.perceptual_causality import (
+    generate_perceptually_causal_relations,
+    remove_state_from_perceptually_causal_relations,
+)
 from openlockagents.OpenLockLearner.util.common import (
     CAUSAL_CHAIN_EDGES,
     FIXED_STRUCTURE_ATTRIBUTES_GRAPH_PATH,
@@ -10,21 +24,6 @@ from openlockagents.OpenLockLearner.util.common import (
     merge_perceptually_causal_relations_from_dict_of_trials,
     merge_solutions_from_dict_of_trials,
 )
-from openlockagents.OpenLockLearner.io.causal_structure_io import (
-    load_causal_chain_space,
-)
-from openlockagents.common.io.log_io import load_solutions_by_trial
-from openlockagents.OpenLockLearner.generator.chain_generator import (
-    generate_causal_chains_fixed_structure_attributes,
-    generate_true_chains,
-)
-from openlockagents.OpenLockLearner.perceptual_causality_python.perceptual_causality import (
-    generate_perceptually_causal_relations,
-    remove_state_from_perceptually_causal_relations,
-)
-from openlockagents.OpenLockLearner.learner.ChainPruner import prune_random_subsample
-
-from openlock.settings_trial import PARAMS
 
 
 def main():
@@ -94,8 +93,6 @@ def main():
         state_space = list(attribute_pairs)
         action_space = env.actions
 
-        # load chains
-        # causal_chain_space = load_chains(data_dir, chain_mode)
         # generate chains
         causal_chain_space = generate_causal_chains_fixed_structure_attributes(
             state_space,
@@ -110,16 +107,6 @@ def main():
         )
         # return
         print("Load/generation time: {}s".format(time.time() - start_time))
-
-        # start_time = time.time()
-        # print('Checking for duplicate chains...')
-        # # check for duplicate chains - no two chains in space should be identical
-        # assert not causal_chain_space.check_for_duplicate_chains(), 'Duplicate chain found'
-        # print('Checking for duplicate chains too {}s'.format(time.time()-start_time))
-
-        # check for true chains
-        # print(causal_chain_space.true_chains)
-        # true_chain_idxs = causal_chain_space.verify_true_chains_in_causal_chains_with_positive_belief(causal_chain_space.true_chains)
 
     # must reload space
     print("RELOADING CHAINS...")

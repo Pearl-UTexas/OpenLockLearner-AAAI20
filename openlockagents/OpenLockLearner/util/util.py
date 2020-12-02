@@ -1,3 +1,5 @@
+import logging
+
 from openlock.common import ENTITY_STATES, Action
 from openlock.settings_scenario import select_scenario
 from openlock.settings_trial import LEVER_CONFIGS
@@ -82,10 +84,17 @@ def generate_solutions_by_trial_causal_relation(scenario_name, trial_name):
     scenario_solutions = get_one_of(scenario, ["SOLUTIONS", "solutions"])
     trial_levers = LEVER_CONFIGS[trial_name]
     for scenario_solution in scenario_solutions:
+        # Action to use for wildcard actions.
+        default_action = [action for action in scenario_solution if action.name != "*"][
+            0
+        ].name
         solution_chain = []
         precondition = None
         for action_log in scenario_solution:
             action_name = action_log.name
+            if action_name == "*":
+                action_name = default_action
+            logging.debug(f"action_name={action_name}")
             state_name = action_name.split("_")[1]
             if state_name == "door":
                 causal_relation = door_causal_relation_type

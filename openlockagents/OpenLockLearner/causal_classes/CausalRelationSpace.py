@@ -1,22 +1,16 @@
 # cython: language_level=3
 
 import itertools
+from itertools import product
+from typing import Sequence
+
 import constraint
 import numpy as np
-import os
-
-from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
-    CausalRelationType,
-    CausalRelation,
-)
 from openlock.common import Action
-
-# import cython
-# if cython.compiled:
-#     print(os.path.basename(__file__) + " is compiled.")
-# else:
-#     print(os.path.basename(__file__) + " is an interpreted script.")
-
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
+    CausalRelation,
+    CausalRelationType,
+)
 
 POSITIONS = [
     "UPPERRIGHT",
@@ -29,7 +23,6 @@ POSITIONS = [
 ]
 COLORS = ["GREY", "WHITE"]
 ACTIONS = ["push", "pull"]
-# ACTIONS = ["push_{}".format(x) for x in POSITIONS] + ["pull_{}".format(POSITIONS) for x in POSITIONS]
 FLUENT_STATES = [0, 1]
 FLUENTS = [CausalRelationType.one_to_zero, CausalRelationType.zero_to_one]
 
@@ -43,9 +36,11 @@ class CausalRelationSpace:
         fluent_states,
         perceptually_causal_relations=None,
         true_chains=None,
+        max_delay=1,
     ):
         self.attributes = list(itertools.product(*attributes))
         self.actions = actions
+        self.delays = list(range(max_delay))
 
         preconditions_with_dependencies = list(
             itertools.product(self.attributes, fluent_states)
@@ -56,10 +51,13 @@ class CausalRelationSpace:
 
         self.causal_relations_no_parent = list(
             itertools.product(
-                [None], self.attributes, self.actions, self.causal_relation_types
+                [None],
+                self.attributes,
+                self.actions,
+                self.causal_relation_types,
+                self.delays,
             )
         )
-        # self.causal_relations_parent = list(itertools.product(preconditions_with_dependencies, self.attributes, self.actions, self.fluents))
 
         # construct map of perceptually causal relations
         perceptually_causal_relation_map = dict()
@@ -74,6 +72,7 @@ class CausalRelationSpace:
             attributes=self.attributes,
             actions=self.actions,
             causal_relation_types=self.causal_relation_types,
+            delays=self.delays,
             perceptually_causal_relation_map=perceptually_causal_relation_map,
         )
 
@@ -90,63 +89,51 @@ class CausalRelationSpace:
         attributes,
         actions,
         causal_relation_types,
+        delays: Sequence[int],
         perceptually_causal_relation_map,
     ):
         causal_relations = set()
         counter = 0
-        for attribute in attributes:
-            for action in actions:
-                # TODO(mjedmonds): this is a hack but prevents a lot of problems later on
-                # skip door pulling action
-                if action == "pull" and attribute[0] == "door":
-                    continue
+        for attribute, action in product(attributes, actions):
+            # TODO(mjedmonds): this is a hack but prevents a lot of problems later on
+            # skip door pulling action
+            if action == "pull" and attribute[0] == "door":
+                continue
 
-                for precondition in preconditions:
-                    for causal_relation_type in causal_relation_types:
-
-                        # if any([CausalRelation(
-                        #                         action=Action(action, attribute[0], None),
-                        #                         attributes=attribute,
-                        #                         causal_relation_type=causal_relation_type,
-                        #                         precondition=precondition,
-                        #                     ) in true_chain for true_chain in true_chains]):
-                        #     print("true chain component")
-
-                        # check against perceptually causal relations
-                        if (
-                            action,
-                            attribute,
-                        ) in perceptually_causal_relation_map.keys():
-                            # if the observed fluent change matches the generated one, we can add this relation
-                            if (
-                                perceptually_causal_relation_map[(action, attribute)]
-                                == causal_relation_type
-                            ):
-                                causal_relations.add(
-                                    (
-                                        # TODO(mjedmonds): hacky way to add in position to action
-                                        CausalRelation(
-                                            action=Action(action, attribute[0], None),
-                                            attributes=attribute,
-                                            causal_relation_type=causal_relation_type,
-                                            precondition=precondition,
-                                        )
-                                    )
-                                )
-                            # else:
-                            #     print("Rejected: {}".format((action, attribute, causal_relation_type, precondition)))
-                        else:
-                            # this (action, attribute) pair is not in the perceptually causal relations, add this relation
-                            causal_relations.add(
+            for precondition, causal_relation_type, delay in product(
+                preconditions, causal_relation_types, delays
+            ):
+                # check against perceptually causal relations
+                if (action, attribute,) in perceptually_causal_relation_map.keys():
+                    # if the observed fluent change matches the generated one, we can add this relation
+                    if (
+                        perceptually_causal_relation_map[(action, attribute)]
+                        == causal_relation_type
+                    ):
+                        causal_relations.add(
+                            (
+                                # TODO(mjedmonds): hacky way to add in position to action
                                 CausalRelation(
-                                    # TODO(mjedmonds): hacky way to add in position to action
                                     action=Action(action, attribute[0], None),
                                     attributes=attribute,
                                     causal_relation_type=causal_relation_type,
                                     precondition=precondition,
                                 )
                             )
-                        counter += 1
+                        )
+                else:
+                    # this (action, attribute) pair is not in the perceptually causal relations, add this relation
+                    causal_relations.add(
+                        CausalRelation(
+                            # TODO(mjedmonds): hacky way to add in position to action
+                            action=Action(action, attribute[0], None),
+                            attributes=attribute,
+                            causal_relation_type=causal_relation_type,
+                            precondition=precondition,
+                            delay=delay,
+                        )
+                    )
+                counter += 1
 
         print(
             "{}/{} valid causal relations generated".format(

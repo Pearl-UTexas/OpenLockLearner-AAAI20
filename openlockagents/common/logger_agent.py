@@ -1,20 +1,17 @@
-import time
-import jsonpickle
-import os
-import json
 import copy
-import sys
-import texttable
+import json
 import os
-import subprocess
 import signal
+import subprocess
+import sys
+import time
 
+import jsonpickle
 import numpy as np
-
-from tensorboardX import SummaryWriter
-
+import texttable
 from openlock.logger_env import ActionLog, AttemptLog, TrialLog
 from openlockagents.common.io.log_io import pretty_write, write_pickle
+from tensorboardX import SummaryWriter
 
 
 class SubjectLogger(object):
@@ -252,29 +249,6 @@ class SubjectWriter:
 
             write_pickle(agent_cpy, agent_file_name_base + ".pkl")
             pretty_write(agent_str, agent_file_name_base + ".json")
-
-    #
-    # def JSONify_subject(self, subject):
-    #     trial_jsons = []
-    #     for trial in subject.trial_seq:
-    #         trial_jsons.append( self.JSONify_trial(subject.trial))
-    #     subject_json = jsonpickle.encode(subject)
-    #     print trial_jsons
-    #
-    # def JSONify_trial(self, trial_seq):
-    #     attempt_jsons = []
-    #     for attempt in trial.attempt_seq:
-    #         attempt_jsons.append(self.JSONify_attempt(attempt))
-    #     trial_json = jsonpickle.encode(trial)
-    #     return trial_json
-    #
-    # def JSONify_attempt(self, attempt):
-    #     results_seq_str = jsonpickle.encode(attempt.results_seq)
-    #     attempt.results_seq_str = results_seq_str
-    #     return jsonpickle.encode(attempt)
-    #
-    # def JSONify_action(self, action):
-    #     return jsonpickle.encode(action)
 
 
 class TensorboardWriter(object):

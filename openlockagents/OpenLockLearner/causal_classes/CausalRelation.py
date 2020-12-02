@@ -1,14 +1,15 @@
-from enum import Enum
 from collections import namedtuple
+from enum import Enum
+from typing import Any, NamedTuple, Sequence, Tuple
 
-CausalRelation = namedtuple('CausalRelation', 'precondition action attributes causal_relation_type')
+from openlock.common import Action
 
 
 class CausalRelationType(Enum):
-    zero_to_zero = (0,0)
-    one_to_zero = (1,0)
-    zero_to_one = (0,1)
-    one_to_one = (1,1)
+    zero_to_zero = (0, 0)
+    one_to_zero = (1, 0)
+    zero_to_one = (0, 1)
+    one_to_one = (1, 1)
 
     def __str__(self):
         return str(self.value)
@@ -26,10 +27,16 @@ class CausalRelationType(Enum):
         return self.value[1]
 
 
+class CausalRelation(NamedTuple):
+    precondition: Sequence[Tuple[Any]]
+    action: Action
+    attributes: Any
+    causal_relation_type: CausalRelationType
+    delay: int
+
+
 class CausalRelationClass:
-    def __init__(
-        self, precondition, causal_relation_type, action, attributes
-    ):
+    def __init__(self, precondition, causal_relation_type, action, attributes):
         self.precondition = precondition
         self.causal_relation_type = causal_relation_type
         self.action = action

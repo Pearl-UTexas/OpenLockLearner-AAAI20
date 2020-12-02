@@ -1,16 +1,13 @@
 import time
 
-from openlockagents.OpenLockLearner.util.common import (
-    SANITY_CHECK_ELEMENT_LIMIT,
-    print_message,
-)
+from openlockagents.common.common import DEBUGGING
 from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
     CausalObservation,
     CausalRelation,
     CausalRelationType,
 )
 from openlockagents.OpenLockLearner.learner.ChainPruner import ChainPruner
-from openlockagents.common.common import DEBUGGING
+from openlockagents.OpenLockLearner.util.common import print_message
 
 
 class CausalLearner:
@@ -24,7 +21,6 @@ class CausalLearner:
         env,
         causal_chain_space,
         causal_chain_idxs,
-        causal_observations,
         action_sequences_to_prune,
         trial_name,
         trial_count,
@@ -53,14 +49,6 @@ class CausalLearner:
                 causal_chain_idxs=causal_chain_idxs,
                 action_sequences_to_prune=action_sequences_to_prune,
             )
-            # chain_idxs_consistent_v1, chain_idxs_removed_v1 = self.chain_pruner.prune_inconsistent_chains(
-            #     causal_chain_space,
-            #     causal_chain_idxs,
-            #     causal_observations,
-            #     trial_count,
-            #     attempt_count,
-            #     multiproc=multiproc,
-            # )
 
         if DEBUGGING:
             print_message(
@@ -69,13 +57,8 @@ class CausalLearner:
                 "REMOVED {} CHAINS".format(len(chain_idxs_removed)),
                 self.print_messages,
             )
-            # if 0 < len(chain_idxs_removed) < 100:
-            #     causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
-            #         chain_idxs_removed, belief_manager
-            #     )
 
         start_time = time.time()
-        # print_message(trial_count, attempt_count, "Updating beliefs...")
         map_chains = causal_chain_space.update_bottom_up_beliefs(
             env.attribute_order, trial_name, multiproc=multiproc
         )
@@ -207,9 +190,6 @@ class CausalLearner:
             )
             causal_change_idx += 1
 
-            # self.observed_causal_observations.append(causal_observations[0])
-            # if there was a state change increment our state change index/number
-            # self.effective_causal_change_idx += 1
         else:
             # prune chains based on action at current state_change_idx_this_attempt
             causal_observations.extend(

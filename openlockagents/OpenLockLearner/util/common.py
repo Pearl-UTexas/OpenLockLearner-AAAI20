@@ -1,19 +1,19 @@
-import os
-import json
-import multiprocessing
-import heapq
-import numpy as np
 import argparse
-
+import heapq
+import multiprocessing
+import os
 from shutil import copytree, ignore_patterns
 
-from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelationType
+import numpy as np
 import openlockagents.common.common as common
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
+    CausalRelationType,
+)
 
 # typedef for values to use during chain generation
 GRAPH_INT_TYPE = np.uint8
 
-PARALLEL_MAX_NBYTES = '50000M'
+PARALLEL_MAX_NBYTES = "50000M"
 
 SANITY_CHECK_ELEMENT_LIMIT = 1000000
 
@@ -21,7 +21,6 @@ ALL_CAUSAL_CHAINS = 1
 
 
 class AblationParams:
-
     def __init__(self):
         self.TOP_DOWN = False
         self.BOTTOM_UP = False
@@ -39,10 +38,26 @@ class AblationParams:
 
 def parse_arguments():
     parser = argparse.ArgumentParser("OpenLockLearner")
-    parser.add_argument("--savedir", metavar="DIR", type=str, help="directory to save the output of the OpenLockLearner")
-    parser.add_argument("--scenario", metavar="XX4", type=str, help="training-testing scenarios. E.g. CE3-CC4. For baselines, use CE4 or CC4")
-    parser.add_argument("--ablations", type=str, nargs="+", help="ablations, options are: 'top_down', 'bottom_up', 'pruning'")
+    parser.add_argument(
+        "--savedir",
+        metavar="DIR",
+        type=str,
+        help="directory to save the output of the OpenLockLearner",
+    )
+    parser.add_argument(
+        "--scenario",
+        metavar="XX4",
+        type=str,
+        help="training-testing scenarios. E.g. CE3-CC4. For baselines, use CE4 or CC4",
+    )
+    parser.add_argument(
+        "--ablations",
+        type=str,
+        nargs="+",
+        help="ablations, options are: 'top_down', 'bottom_up', 'pruning'",
+    )
     parser.add_argument("--bypass_confirmation", action="store_true")
+    parser.add_argument("--verbosity", type=str, help="Logging verbosity")
     args = parser.parse_args()
     return args
 
@@ -61,17 +76,8 @@ def write_source_code(project_src_path, destination_path):
     copytree(
         project_src_path,
         destination_path,
-        ignore=ignore_patterns(
-            "*.mp4", "*.pyc", ".git", ".gitignore", ".gitmodules"
-        ),
+        ignore=ignore_patterns("*.mp4", "*.pyc", ".git", ".gitignore", ".gitmodules"),
     )
-
-
-def setup_states_actions_attribute_labels(env, scenario_name):
-    # setup a dummy trial so we can initialize states, actions, etc based on the state of the simulator
-    trial_selected = env.setup_trial(scenario_name, action_limit=3, attempt_limit=3)
-
-    states = env.obj_map.keys()
 
 
 def setup_actions(states):
@@ -90,11 +96,14 @@ def verify_valid_probability_distribution(dist):
 
 
 def get_highest_N_values_and_idxs(N, arr, min_value=None):
-    return get_highest_N_values(N, arr, min_value), get_highest_N_idxs(N, arr, min_value)
+    return (
+        get_highest_N_values(N, arr, min_value),
+        get_highest_N_idxs(N, arr, min_value),
+    )
 
 
 def get_highest_N_values(N, arr, min_value=None):
-    return arr[get_highest_N_idxs(N,arr, min_value)]
+    return arr[get_highest_N_idxs(N, arr, min_value)]
 
 
 def get_highest_N_idxs(N, arr, min_value=None):
@@ -131,7 +140,9 @@ def get_lowest_N_idxs(N, arr, max_value=None):
     return result_idxs
 
 
-def load_openlock_learner_config_json(path="openlockagents/OpenLockLearner/openlock_learner_config.json"):
+def load_openlock_learner_config_json(
+    path="openlockagents/OpenLockLearner/openlock_learner_config.json",
+):
     return common.load_json_config(path)
 
 
@@ -149,7 +160,11 @@ def setup_structure_space_paths(config_data=None):
         config_data["DATA_BASE_PATH"] + config_data["THREE_SOLUTION_SCHEMA_PICKLE"]
     )
 
-    return causal_chain_structure_space_path, two_solution_schemas_structure_space_path, three_solution_schemas_structure_space_path
+    return (
+        causal_chain_structure_space_path,
+        two_solution_schemas_structure_space_path,
+        three_solution_schemas_structure_space_path,
+    )
 
 
 ACTION_REGEX_STR = "action([0-9]+)"
@@ -158,19 +173,13 @@ STATE_REGEX_STR = "state([0-9]+)"
 GRAPH_BATCH_SIZE = 1000000
 
 # Attributes
-# POSITION_ATTRIBUTE_LABELS = list(POSITION_TO_IDX.keys())
 DUMMY_ATTRIBUTES = ["attr1", "attr2"]
 
-# ATTRIBUTE_LABELS = {
-#     "color": COLOR_ATTRIBUTE_LABELS,
-#     "position": POSITION_ATTRIBUTE_LABELS,
-# 'dummy': DUMMY_ATTRIBUTES,
-# }
 
 # define causal chain over both state_space x actions
 
 FLUENTS = [CausalRelationType.one_to_zero, CausalRelationType.zero_to_one]
-FLUENT_STATES = [0,1]
+FLUENT_STATES = [0, 1]
 ACTIONS = ["push", "pull"]
 
 STATES_ROLE = [
@@ -189,10 +198,6 @@ ACTIONS_ROLE = setup_actions(STATES_ROLE)
 
 DOOR_STATES = ["door_lock"]
 
-# STATES_POSITION = POSITION_ATTRIBUTE_LABELS + DOOR_STATES
-# STATES_POSITION = POSITION_ATTRIBUTE_LABELS
-
-# ACTIONS_POSITION = setup_actions(STATES_POSITION)
 
 CAUSAL_CHAIN_EDGES = (
     ("action0", "state0"),
@@ -214,98 +219,13 @@ PLAUSIBLE_CPT_CHOICES = [
 ]
 
 
-# --------------------------------------------------------
-# BELOW IS DEPRECATED - done by role, rather than position. Need position or role based solution chains based on version of
-# human data process. Solutions are store in HUMAN_PICKLE_DATA_PATH/solution_by_trial.pickle, and chains can be generated
-# using solution sequences and CausalChainCompact.construct_chain_from_actions_and_cpt_choices(), and TRUE_GRAPH_CPT_CHOICES
-# --------------------------------------------------------
-
-# True causal chains in english:
-# CC3:
-#   Solution 1: push_l0=1: changes l0 from 1->0
-#               push_l1=1, l0=0: changes l1 from 1->0
-#               push_door=1, l1=0: changes door from 0->1
-#   Solution 2: push_l0=1: changes l0 from 1->0
-#               push_l2=1, l0=0: changes l2 from 1->0
-#               push_door=1, l1=0: changes door from 0->1
-# TRUE_CAUSAL_CHAINS_CC3 =[
-#     CausalChainCompact(states=('l0', 'l1', 'door'), actions=('push_l0', 'push_l1', 'push_door'), conditional_probability_table_choices=TRUE_GRAPH_CPT_CHOICES), # solution 1
-#     CausalChainCompact(states=('l0', 'l2', 'door'), actions=('push_l0', 'push_l2', 'push_door'), conditional_probability_table_choices=TRUE_GRAPH_CPT_CHOICES) # solution 2
-# ]
-
-# CE3:
-#   Solution 1: push_l1=1: changes l1 from 1->0
-#               push_l0=1, l1=0: changes l0 from 1->0
-#               push_door=1, l0=0: changes door from 0->1
-#   Solution 2: push_l2=1: changes l2 from 1->0
-#               push_l0=1, l2=0: changes l0 from 1->0
-#               push_door=1, l0=0: changes door from 0->1
-# TRUE_CAUSAL_CHAINS_CE3 =[
-#     CausalChainCompact(states=('l1', 'l0', 'door'), actions=('push_l1', 'push_l0', 'push_door'), conditional_probability_table_choices=TRUE_GRAPH_CPT_CHOICES), # solution 1
-#     CausalChainCompact(states=('l2', 'l0', 'door'), actions=('push_l2', 'push_l0', 'push_door'), conditional_probability_table_choices=TRUE_GRAPH_CPT_CHOICES) # solution 2
-# ]
-# CAUSALLY_PLAUSIBLE_CHAINS_CE3 = TRUE_CAUSAL_CHAINS_CE3
-# CAUSALLY_PLAUSIBLE_CHAINS_CE3.extend([
-#     CausalChainCompact(states=('l1', 'l0', 'l1'), actions=('push_l1', 'push_l0', 'pull_l1'), conditional_probability_table_choices=PLAUSIBLE_CPT_CHOICES[0]),
-#     CausalChainCompact(states=('l2', 'l0', 'l2'), actions=('push_l2', 'push_l0', 'pull_l2'), conditional_probability_table_choices=PLAUSIBLE_CPT_CHOICES[0]),
-#     CausalChainCompact(states=('l1', 'l0', 'l0'), actions=('push_l1', 'push_l0', 'pull_l0'), conditional_probability_table_choices=PLAUSIBLE_CPT_CHOICES[0]),
-#     CausalChainCompact(states=('l2', 'l0', 'l0'), actions=('push_l2', 'push_l0', 'pull_l0'), conditional_probability_table_choices=PLAUSIBLE_CPT_CHOICES[0]),
-#     CausalChainCompact(states=('l1', 'l2', 'l0'), actions=('push_l1', 'push_l2', 'push_l0'), conditional_probability_table_choices=PLAUSIBLE_CPT_CHOICES[1]),
-#     CausalChainCompact(states=('l2', 'l1', 'l0'), actions=('push_l2', 'push_l1', 'push_l0'), conditional_probability_table_choices=PLAUSIBLE_CPT_CHOICES[1]),
-#     CausalChainCompact(states=('l1', 'l0', 'l2'), actions=('push_l1', 'push_l0', 'push_l2'), conditional_probability_table_choices=PLAUSIBLE_CPT_CHOICES[1]),
-#     CausalChainCompact(states=('l2', 'l0', 'l1'), actions=('push_l2', 'push_l0', 'push_l1'), conditional_probability_table_choices=PLAUSIBLE_CPT_CHOICES[1]),
-# ])
-
-# CC4:
-#   Solution 1: push_l0=1: changes l0 from 1->0
-#               push_l1=1, l0=0: changes l1 from 1->0
-#               push_door=1, l1=0: changes door from 0->1
-#   Solution 2: push_l0=1: changes l0 from 1->0
-#               push_l2=1, l0=0: changes l2 from 1->0
-#               push_door=1, l1=0: changes door from 0->1
-#   Solution 3: push_l0=1: changes l0 from 1->0
-#               push_l3=1, l0=0: changes l3 from 1->0
-#               push_door=1, l3=0: changes door from 0->1
-# TRUE_CAUSAL_CHAINS_CC4 =[
-#     CausalChainCompact(states=('l0', 'l1', 'door'), actions=('push_l0', 'push_l1', 'push_door'), conditional_probability_table_choices=TRUE_GRAPH_CPT_CHOICES), # solution 1
-#     CausalChainCompact(states=('l0', 'l2', 'door'), actions=('push_l0', 'push_l2', 'push_door'), conditional_probability_table_choices=TRUE_GRAPH_CPT_CHOICES), # solution 2
-#     CausalChainCompact(states=('l0', 'l3', 'door'), actions=('push_l0', 'push_l3', 'push_door'), conditional_probability_table_choices=TRUE_GRAPH_CPT_CHOICES) # solution 3
-# ]
-
-# CE4:
-#   Solution 1: push_l1=1: changes l1 from 1->0
-#               push_l0=1, l1=0: changes l0 from 1->0
-#               push_door=1, l0=0: changes door from 0->1
-#   Solution 2: push_l2=1: changes l2 from 1->0
-#               push_l0=1, l2=0: changes l0 from 1->0
-#               push_door=1, l0=0: changes door from 0->1
-#   Solution 3: push_l3=1: changes l3 from 1->0
-#               push_l0=1, l3=0: changes l0 from 1->0
-#               push_door=1, l0=0: changes door from 0->1
-# TRUE_CAUSAL_CHAINS_CE4 =[
-#     CausalChainCompact(states=('l1', 'l0', 'door'), actions=('push_l1', 'push_l0', 'push_door'), conditional_probability_table_choices=TRUE_GRAPH_CPT_CHOICES), # solution 1
-#     CausalChainCompact(states=('l2', 'l0', 'door'), actions=('push_l2', 'push_l0', 'push_door'), conditional_probability_table_choices=TRUE_GRAPH_CPT_CHOICES), # solution 2
-#     CausalChainCompact(states=('l3', 'l0', 'door'), actions=('push_l3', 'push_l0', 'push_door'), conditional_probability_table_choices=TRUE_GRAPH_CPT_CHOICES) # solution 3
-# ]
-
-# def true_chain_selector(scenario_name):
-#     if scenario_name == 'CC3':
-#         return TRUE_CAUSAL_CHAINS_CC3
-#     if scenario_name == 'CE3':
-#         return TRUE_CAUSAL_CHAINS_CE3
-#     if scenario_name == 'CC4':
-#         return TRUE_CAUSAL_CHAINS_CC4
-#     if scenario_name == 'CE4':
-#         return TRUE_CAUSAL_CHAINS_CE4
-
-
 def print_message(trial_count, attempt_count, message, print_message=True):
     if print_message:
         print("T{}.A{}: ".format(trial_count, attempt_count) + message)
 
 
 def merge_perceptually_causal_relations_from_dict_of_trials(
-    perceptually_causal_relations
+    perceptually_causal_relations,
 ):
     merged_perceptually_causal_relations = []
     for key in perceptually_causal_relations.keys():

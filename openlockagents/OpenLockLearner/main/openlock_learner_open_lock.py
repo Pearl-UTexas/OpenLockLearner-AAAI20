@@ -1,3 +1,4 @@
+import logging
 import math
 import os
 import time
@@ -22,8 +23,6 @@ from openlockagents.OpenLockLearner.util.common import (
     setup_structure_space_paths,
 )
 
-# must include this to unpickle properly
-
 
 def plot_num_pruned(num_chains_pruned, filename):
     y = [math.log(x) if x > 0 else -0 for x in num_chains_pruned]
@@ -45,6 +44,8 @@ def main():
 
     args = parse_arguments()
 
+    logging.basicConfig(level=args.verbosity)
+
     ablation_params = AblationParams()
 
     if args.savedir is None:
@@ -60,9 +61,6 @@ def main():
     else:
         bypass_confirmation = True
     if args.ablations is None:
-        # ablation_params.INDEXED_DISTRIBUTIONS = True
-        # ablation_params.PRUNING = True
-        # ablation_params.TOP_DOWN_FIRST_TRIAL = True
         pass
     else:
         # process ablations
@@ -78,7 +76,6 @@ def main():
     params["data_dir"] = data_dir
     params["train_attempt_limit"] = 30
     params["test_attempt_limit"] = 30
-    # params['full_attempt_limit'] = True      # run to the full attempt limit, regardless of whether or not all solutions were found
     # run to the full attempt limit, regardless of whether or not all solutions were found
     params["full_attempt_limit"] = False
     params["intervention_sample_size"] = 10
@@ -93,22 +90,21 @@ def main():
     params["epsilon_decay"] = 0.99
     params["epsilon_active"] = False
     # these params were extracted using matlab
-    # params["epsilon_ratios"] = [0.5422, 0.3079, 0.1287, 0.1067, 0, 0]
     params["intervention_mode"] = "action"
-    # params["intervention_mode"] = 'attempt'
     # setup ablations
     params["ablation_params"] = ablation_params
     params["effect_probabilities"] = generate_effect_probabilities(
-        l0=1, l1=1, l2=1, door=1
+        l0=1.0, l1=1.0, l2=1.0, door=1.0
     )
 
     params["using_ids"] = False
     params["multiproc"] = False
     params["deterministic"] = False
     params["num_agent_runs"] = 40
-    params["src_dir"] = "/tmp/openlocklearner/" + str(hash(time.time())) + "/src/"
+    params["src_dir"] = None
     params["print_messages"] = False
 
+    logging.info("Pre-instantiation setup")
     env = Agent.pre_instantiation_setup(params, bypass_confirmation)
     env.lever_index_mode = "position"
 
@@ -128,21 +124,24 @@ def main():
     # these are used to advance to the next trial after there have no chains pruned for num_steps_with_no_pruning_to_finish_trial steps
     num_steps_with_no_pruning_to_finish_trial = 500
     num_agent_runs = params["num_agent_runs"]
+
+    logging.info("Loading structure and schemas")
+    (
+        causal_chain_structure_space,
+        two_solution_schemas,
+        three_solution_schemas,
+    ) = load_causal_structures_from_file(
+        causal_chain_structure_space_path,
+        two_solution_schemas_structure_space_path,
+        three_solution_schemas_structure_space_path,
+    )
+
+    logging.info("Starting trials")
     for i in range(num_agent_runs):
         agent_start_time = time.time()
 
         env = Agent.make_env(params)
         env.lever_index_mode = "position"
-
-        (
-            causal_chain_structure_space,
-            two_solution_schemas,
-            three_solution_schemas,
-        ) = load_causal_structures_from_file(
-            causal_chain_structure_space_path,
-            two_solution_schemas_structure_space_path,
-            three_solution_schemas_structure_space_path,
-        )
 
         # setup agent
         agent = OpenLockLearnerAgent(
@@ -181,10 +180,7 @@ def main():
             )
 
         # testing
-        if (
-            params["test_scenario_name"] == "CE4"
-            or params["test_scenario_name"] == "CC4"
-        ):
+        if params["test_scenario_name"] in ("CE4, CC4, CE4D, CC4D"):
             (
                 trial_selected,
                 chain_idxs_pruned_from_initial_observation,

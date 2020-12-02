@@ -1,32 +1,30 @@
 import multiprocessing
 import sys
 import time
-import numpy as np
 
-from joblib import Parallel, delayed
 import networkx as nx
-
-from openlockagents.OpenLockLearner.util.common import (
-    SANITY_CHECK_ELEMENT_LIMIT,
-    generate_slicing_indices,
-    PARALLEL_MAX_NBYTES,
-    verify_valid_probability_distribution,
-    renormalize,
-)
-from openlockagents.OpenLockLearner.generator.schema_generator import (
-    generate_instantiation_mappings,
-    UNASSIGNED_CHAIN,
-)
-
+import numpy as np
+from joblib import Parallel, delayed
 from openlockagents.OpenLockLearner.causal_classes.BeliefSpace import (
-    AtomicSchemaBeliefSpace,
     AbstractSchemaBeliefSpace,
-    InstantiatedSchemaBeliefSpace,
+    AtomicSchemaBeliefSpace,
     BottomUpChainBeliefSpace,
+    InstantiatedSchemaBeliefSpace,
     TopDownChainBeliefSpace,
 )
 from openlockagents.OpenLockLearner.causal_classes.SchemaStructureSpace import (
     InstantiatedSchemaStructureSpace,
+)
+from openlockagents.OpenLockLearner.generator.schema_generator import (
+    UNASSIGNED_CHAIN,
+    generate_instantiation_mappings,
+)
+from openlockagents.OpenLockLearner.util.common import (
+    PARALLEL_MAX_NBYTES,
+    SANITY_CHECK_ELEMENT_LIMIT,
+    generate_slicing_indices,
+    renormalize,
+    verify_valid_probability_distribution,
 )
 
 
@@ -326,37 +324,6 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
             self.belief_space
         ), "AbstractSchemaSpace beliefs is not a valid probability distribution"
 
-    # def update_abstract_schema_beliefs(self, completed_solutions):
-    #     assert False, "Function deprecated"
-    #     # construct solution chain using actions; we only care about the structure, so using actions is fine
-    #     solution_edges = list(
-    #         set(
-    #             [
-    #                 (str(completed_solution[i]), str(completed_solution[i + 1]))
-    #                 for completed_solution in completed_solutions
-    #                 for i in range(len(completed_solution) - 1)
-    #             ]
-    #         )
-    #     )
-    #     solution_graph = nx.DiGraph(solution_edges)
-    #
-    #     # find solution chain schema index by looking for isomorphic
-    #     solution_idx = None
-    #     solution_found = False
-    #     for i in range(len(self.structure_space)):
-    #         schema_edges = self.structure_space[i].edges
-    #         schema_graph = nx.DiGraph(schema_edges)
-    #         if nx.is_isomorphic(schema_graph, solution_graph):
-    #             assert (
-    #                 not solution_found
-    #             ), "More than one schema is isomorphic to schema chain"
-    #             solution_idx = i
-    #             solution_found = True
-    #
-    #     assert solution_found, "Solutions executed could not be matched to abstract schema structure"
-    #     # update distribution params
-    #     self.belief_space.update_alpha(solution_idx)
-
 
 class InstantiatedSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
     def __init__(self, structures, beliefs):
@@ -454,9 +421,6 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
 
             chain_attributes = self.structure_space.get_attributes(causal_chain_idx)
             chain_actions = self.structure_space.get_actions(causal_chain_idx)
-
-            # combine states with attributes (this is from before including position as an attribute
-            # attributes_zipped = list(zip(causal_chain.states, causal_chain.attributes))
 
             # update belief using local attributes (both global and local attributes have already been updated from observation)
             new_belief = self.bottom_up_belief_space.attribute_space.local_attributes[

@@ -1,20 +1,19 @@
-import numpy as np
-import random
-import texttable
-import jsonpickle
-import time
 import copy
-from operator import itemgetter
+import logging
+import random
+import time
 from collections import defaultdict
+from operator import itemgetter
 
-from openlockagents.OpenLockLearner.util.common import (
-    check_for_duplicates,
-    SANITY_CHECK_ELEMENT_LIMIT,
-    ALL_CAUSAL_CHAINS,
-)
-from openlockagents.common.io.log_io import pretty_write
-
+import jsonpickle
+import numpy as np
+import texttable
 from openlock.logger_env import ActionLog
+from openlockagents.common.io.log_io import pretty_write
+from openlockagents.OpenLockLearner.util.common import (
+    ALL_CAUSAL_CHAINS,
+    check_for_duplicates,
+)
 
 
 class CausalChainStructureSpace:
@@ -28,9 +27,6 @@ class CausalChainStructureSpace:
         lever_index_mode,
         print_messages=True,
     ):
-        # represents every possible permutation of conditional probability tables for each chain
-        # self.conditional_probability_table_combinations = None
-
         self.causal_relation_space = copy.deepcopy(causal_relation_space)
         self.chain_length = chain_length
         self.attributes = attributes
@@ -46,8 +42,6 @@ class CausalChainStructureSpace:
             attributes
         ), "Attribute order and attributes have different lengths"
 
-        # self.base_schema = self.construct_base_schema(structure)
-
         self.true_chains = []
         self.true_chain_idxs = []
 
@@ -56,7 +50,7 @@ class CausalChainStructureSpace:
         self.subchain_indexed_domains = [
             self.causal_relation_space.causal_relations_no_parent
         ]
-        for i in range(1, self.chain_length):
+        for _ in range(1, self.chain_length):
             self.subchain_indexed_domains.append(
                 self.causal_relation_space.causal_relations_parent
             )
@@ -81,6 +75,7 @@ class CausalChainStructureSpace:
         return chain_indices_by_subchain_index
 
     def generate_chains(self):
+        logging.debug("Generating chains")
         subchain_indexed_domains = [list(x) for x in self.subchain_indexed_domains]
         chains = []
         rejected_chains = []
@@ -157,9 +152,6 @@ class CausalChainStructureSpace:
                 if not terminal_depth:
                     counter += len(chain_domains[depth + 1])
                 else:
-                    # chain = [chain_domains[j][local_parent_indices[j]] for j in range(len(local_parent_indices))]
-                    # chain.append(child_subchain)
-                    # rejected_chains.append(chain)
                     counter += 1
         return counter
 
@@ -417,6 +409,10 @@ class CausalChainStructureSpace:
         self.true_chains = true_chains
         self.true_chain_idxs = []
         for true_chain in self.true_chains:
+            if true_chain not in self.causal_chains:
+                logging.warning(
+                    f"Causal chain {true_chain} not in {self.causal_chains}"
+                )
             chain_idx = self.causal_chains.index(true_chain)
             self.true_chain_idxs.append(chain_idx)
 

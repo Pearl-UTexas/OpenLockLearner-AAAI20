@@ -1,21 +1,15 @@
-import itertools
-import math
-import time
-import multiprocessing
-import re
 import glob
 import os
-from joblib import Parallel, delayed
+import time
 from itertools import chain
 
+from openlockagents.OpenLockLearner.causal_classes.CausalChain import CausalChainCompact
 from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import (
     CausalChainStructureSpace,
 )
-
 from openlockagents.OpenLockLearner.causal_classes.CausalRelationSpace import (
     CausalRelationSpace,
 )
-from openlockagents.OpenLockLearner.causal_classes.CausalChain import CausalChainCompact
 from openlockagents.OpenLockLearner.util.common import TRUE_GRAPH_CPT_CHOICES
 
 
@@ -27,10 +21,16 @@ def generate_chain_structure_space(
     fluent_states,
     perceptually_causal_relations,
     structure,
+    max_delay: int = 1,
 ):
     t = time.time()
     causal_relation_space = CausalRelationSpace(
-        actions, attributes, fluents, fluent_states, perceptually_causal_relations
+        actions,
+        attributes,
+        fluents,
+        fluent_states,
+        perceptually_causal_relations,
+        max_delay=max_delay,
     )
 
     causal_chain_structure_space = CausalChainStructureSpace(
@@ -99,31 +99,3 @@ def extract_batch_from_generator(generator, chunk_size):
 
 def generate_instantiations_of_base_schema(states, actions):
     pass
-
-
-def main():
-    causal_chain_space = None
-
-    # possible_environments = generate_possible_environments(
-    #     STATES_POSITION, ACTIONS_POSITION, ATTRIBUTE_LABELS
-    # )
-
-    # xxx: this main is out of date, see generate_prune_subsample.py
-    # fixed structure: generation
-    # generate based on role
-    # causal_chain_space = generate(STATES_LABEL, ACTIONS_LABEL, lever_index_mode='role', mode='fixed', structure=CAUSAL_CHAIN_EDGES)
-    # generate based on position
-    # causal_chain_space = generate(STATES_POSITION, ACTIONS_POSITION, lever_index_mode='position', mode='fixed', structure=CAUSAL_CHAIN_EDGES)
-
-    # generate based on position and attribute
-    # TODO(mjedmonds): more cleanly define attributes x
-    # causal_chain_space = generate_causal_chains_fixed_structure_attributes(ATTRIBUTE_PRODUCT, ACTIONS_POSITION, lever_index_mode='position', structure=CAUSAL_CHAIN_EDGES)
-
-    # arbitrary structure: generating
-    # causal_chain_space = generate(STATES, ACTIONS, mode='arbitrary', structure=None)
-
-    return causal_chain_space
-
-
-if __name__ == "__main__":
-    main()

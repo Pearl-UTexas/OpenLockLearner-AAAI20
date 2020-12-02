@@ -1,23 +1,18 @@
-import numpy as np
 import math
-import sys
-import random
-from collections import defaultdict
 import operator
-import dill
+import random
+import sys
+from collections import defaultdict
 
+import numpy as np
+from openlockagents.common.common import DEBUGGING
 from openlockagents.OpenLockLearner.learner.ModelBasedPlanner import ModelBasedPlanner
-
 from openlockagents.OpenLockLearner.util.common import (
     get_highest_N_idxs,
-    get_lowest_N_idxs,
     get_highest_N_values,
-    get_lowest_N_values,
-    AblationParams,
     renormalize,
     verify_valid_probability_distribution,
 )
-from openlockagents.common.common import DEBUGGING
 
 MAX_ENERGY = sys.float_info.max
 
@@ -162,10 +157,6 @@ class ModelBasedRLAgent:
         intervention_idxs_executed = np.array(intervention_idxs_executed)
         intervention_idxs_executed_set = set(intervention_idxs_executed.flatten())
 
-        # causal_relation_domain_at_index = causal_chain_space.structure_space.subchain_indexed_domains[
-        #     causal_change_idx
-        # ]
-
         # find causal chains that contain this action sequence
         if len(action_sequence) > 0:
             causal_chain_idxs_with_action_seq = causal_chain_space.structure_space.find_causal_chain_idxs_with_actions(
@@ -184,8 +175,16 @@ class ModelBasedRLAgent:
 
         assert len(causal_chain_idxs) > 0, "No causal chains to select action from"
         if DEBUGGING:
-            causal_chains_satisfying_goal = [x for x in causal_chain_idxs if self.model_based_planner.determine_chain_satisfies_goal(causal_chain_space.structure_space, x)]
-            assert len(causal_chains_satisfying_goal) > 0, "No causal chains satisfy the goal"
+            causal_chains_satisfying_goal = [
+                x
+                for x in causal_chain_idxs
+                if self.model_based_planner.determine_chain_satisfies_goal(
+                    causal_chain_space.structure_space, x
+                )
+            ]
+            assert (
+                len(causal_chains_satisfying_goal) > 0
+            ), "No causal chains satisfy the goal"
 
         # construct dict of actions to beliefs
         action_beliefs = defaultdict(int)
@@ -218,22 +217,11 @@ class ModelBasedRLAgent:
         # in this case, the only causal chains that satisfy the goal are the solution already executed, but the solution chains also cannot be picked, so we choose a random action (the attempt is wasted)
         if len(action_beliefs.values()) == 0:
             random_chain = self.random_chain_policy(causal_chain_idxs)
-            random_chain_actions = causal_chain_space.structure_space.get_actions(random_chain)
+            random_chain_actions = causal_chain_space.structure_space.get_actions(
+                random_chain
+            )
             action = random_chain_actions[causal_change_idx]
             return action, {}
-            # variables = {
-            #     "model_based_agent": self,
-            #     "causal_chain_space": causal_chain_space,
-            #     "causal_chain_idxs": causal_chain_idxs,
-            #     "causal_change_idx": causal_change_idx,
-            #     "action_sequence": action_sequence,
-            #     "first_agent_trial": first_agent_trial,
-            #     "intervention_idxs_executed": intervention_idxs_executed,
-            #     "interventions_executed": interventions_executed,
-            #     "ablation": ablation,
-            # }
-            # with open("/home/mark/Desktop/greedy_action_policy_problem.dill", 'wb') as f:
-            #     dill.dump(variables, f)
 
         assert min(action_beliefs.values()) >= 0, "Action beliefs has negative value"
 
@@ -246,7 +234,6 @@ class ModelBasedRLAgent:
             action_beliefs.values()
         ), "action beliefs is not a valid probability distribution"
         # best action has max marginal belief
-        # assert False, "sum does not equal 1, problem"
         best_action = max(action_beliefs.items(), key=operator.itemgetter(1))[0]
         return best_action, action_beliefs
 
@@ -289,8 +276,6 @@ class ModelBasedRLAgent:
         intervention_idxs_executed_set = set(intervention_idxs_executed)
         chain_transition_probabilities = []
         for causal_chain_idx in causal_chain_idxs:
-            # if causal_chain_idx in top_down_idxs_with_positive_belief:
-            #     print("top-down idx")
             chain_transition_probabilities.append(
                 self.compute_chain_transition_probability(
                     causal_chain_space=causal_chain_space,
@@ -395,15 +380,6 @@ class ModelBasedRLAgent:
         full_chain_transition_probabilities[
             causal_chain_idxs
         ] = chain_transition_probabilities
-        highest_N_final_belief_idx_bottom_up_beliefs = causal_chain_space.bottom_up_belief_space[
-            highest_N_final_beliefs_causal_chain_space_idxs
-        ]
-        highest_N_final_belief_idx_top_down_beliefs = causal_chain_space.top_down_belief_space[
-            highest_N_final_beliefs_causal_chain_space_idxs
-        ]
-        highest_N_final_belief_value_to_index_map = self.construct_value_to_idx_dict(
-            5, full_chain_transition_probabilities, get_highest_N_values
-        )
 
         if len(highest_N_final_beliefs) == 0:
             print("pause")

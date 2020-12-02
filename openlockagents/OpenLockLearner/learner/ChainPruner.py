@@ -1,17 +1,15 @@
-import time
 import multiprocessing
-from joblib import Parallel, delayed
 
+from joblib import Parallel, delayed
+from openlockagents.common.common import DEBUGGING
 from openlockagents.OpenLockLearner.perceptual_causality_python.perceptual_causality import (
     load_perceptually_causal_relations,
 )
 from openlockagents.OpenLockLearner.util.common import (
-    generate_slicing_indices,
     PARALLEL_MAX_NBYTES,
+    generate_slicing_indices,
+    print_message,
 )
-
-from openlockagents.common.common import DEBUGGING
-from openlockagents.OpenLockLearner.util.common import print_message
 
 
 def prune_chains_from_initial_observation_multiproc(
@@ -212,181 +210,6 @@ class ChainPruner:
                 ]
             ), "causal_chain_idxs does not reflect all chains with positive belief. Should have removed chain that is not included in causal_chain_idxs"
         return chain_idxs_consistent, chain_idxs_removed
-
-    def prune_inconsistent_chains(
-        self,
-        causal_chain_space,
-        causal_chain_idxs,
-        causal_observations,
-        trial_count,
-        attempt_count,
-        multiproc=False,
-    ):
-        assert False, "function deprecated"
-        # TODO(mjedmonds): this will only work in the deterministic case
-        if causal_chain_space.structure_space.using_ids:
-            causal_observations = [
-                causal_chain_space.structure_space.unique_id_manager.convert_causal_observation_to_target_type(
-                    x, target_type="int"
-                )
-                for x in causal_observations
-            ]
-
-        # if all([True if x.causal_relation_type is None else False for x in causal_observations ]):
-        #     print('No effect')
-
-        if not multiproc:
-            (
-                chain_idxs_removed,
-                chain_idxs_consistent,
-            ) = self.prune_inconsistent_chains_common(
-                causal_chain_space,
-                causal_chain_idxs,
-                causal_observations,
-                trial_count,
-                attempt_count,
-            )
-        else:
-            (
-                chain_idxs_removed,
-                chain_idxs_consistent,
-            ) = self.prune_inconsistent_chains_common(
-                causal_chain_space,
-                causal_chain_idxs,
-                causal_observations,
-                trial_count,
-                attempt_count,
-            )
-            # TODO(mjedmonds): cannot parallelize this; class functions are unpicklable
-            # slicing_indices = generate_slicing_indices(self.causal_chain_space.structure_space.causal_chains)
-            # with Parallel(n_jobs=multiprocessing.cpu_count(), verbose=5) as parallel:
-            #     chain_idxs_to_remove_and_chains_removed = parallel(delayed(self.prune_chains_with_inconsistent_conditional_probability_table_and_update_belief_counts_common)(self.causal_chain_space.structure_space.causal_chains[slicing_indices[i-1]:slicing_indices[i]], observed_state, observed_action, observed_causal_relation_type, observed_attributes) for i in range(len(slicing_indices)))
-            #     chain_idxs_to_remove, chains_removed = zip(*chain_idxs_to_remove_and_chains_removed)
-
-        # chains_pruned = prev_num_chains_with_positive_belief - self.causal_chain_space.structure_space.num_chains_with_positive_belief
-        # assert len(chain_idxs_removed) == chains_pruned, "Number of chains removed doesn't match number change in number of chains with positive belief"
-
-        return chain_idxs_consistent, chain_idxs_removed
-
-    def prune_inconsistent_chains_common(
-        self,
-        causal_chain_space,
-        causal_chain_idxs,
-        causal_observations,
-        trial_count,
-        attempt_count,
-    ):
-        assert False, "function deprecated"
-        chains_idxs_removed = []
-        chains_idxs_consistent = []
-        print_update_rate = 1000000
-        start_time = time.time()
-
-        # normalization_factor = 0
-        for i in range(len(causal_chain_idxs)):
-            if i % print_update_rate == 0 and i != 0:
-                print_message(
-                    trial_count,
-                    attempt_count,
-                    "Checking for chains to prune. {}/{} chains checked. Runtime: {:0.6f}s".format(
-                        i, len(causal_chain_idxs), time.time() - start_time
-                    ),
-                    self.print_messages,
-                )
-
-            # this represents where we are in the chain's transitions - not all observations are causal, so don't advance the chain's execution
-            chain_change_idx = 0
-            causal_chain_idx = causal_chain_idxs[i]
-            chain = causal_chain_space.structure_space.causal_chains[causal_chain_idx]
-            chain_belief = causal_chain_space.bottom_up_belief_space.beliefs[
-                causal_chain_idx
-            ]
-
-            # target_states = ("UPPER", "door")
-            # target_actions = ("push_UPPER", "push_door")
-            # target_causal_relations = (
-            #     CausalRelationType.one_to_zero,
-            #     CausalRelationType.zero_to_one,
-            # )
-            # target_cpt_choices = self.causal_chain_space.structure_space.convert_causal_relations_to_cpt_choices(
-            #     target_causal_relations
-            # )
-            # target_attributes = (("UPPER", "GREY"), ("door", "GREY"))
-            # target_chain = self.causal_chain_space.structure_space.create_compact_chain(
-            #     target_states,
-            #     target_actions,
-            #     target_cpt_choices,
-            #     target_attributes,
-            #     convert_to_ids=True,
-            # )
-            # if causal_chain.states == target_chain.states and causal_chain.actions == target_chain.actions:
-            #     self.causal_chain_space.structure_space.pretty_print_causal_chains([causal_chain])
-            # if causal_chain == target_chain:
-            #     self.causal_chain_space.structure_space.pretty_print_causal_chains([causal_chain])
-            # if causal_chain.actions == target_actions:
-            #     self.causal_chain_space.structure_space.pretty_print_causal_chains([causal_chain])
-
-            # if causal_chain in self.causal_chain_space.structure_space.true_chains:
-            #     print('True chain found')
-
-            # skip checking this chain if we have already pruned it (chains below threshold should still be considered)
-            if chain_belief <= 0.0:
-                continue
-
-            chain_consistent = True
-            for causal_observation in causal_observations:
-                (
-                    skipped_relation_flag,
-                    skip_chain_flag,
-                    outcome_consistent,
-                ) = self.check_node_consistency(
-                    causal_chain_space=causal_chain_space,
-                    causal_observation=causal_observation,
-                    chain=chain,
-                    chain_change_idx=chain_change_idx,
-                )
-                # received signal to skip the rest of this chain
-                if skip_chain_flag:
-                    break
-                # received signal to skip relation
-                if skipped_relation_flag:
-                    continue
-                # if the outcome is inconsistent on the first action, prune
-                if not outcome_consistent:
-                    # print("GRAPH {} PRUNED because of subchain {}:".format(causal_chain_idx, chain_change_idx))
-                    # causal_chain_space.structure_space.pretty_print_causal_chains([causal_chain_idx])
-                    assert (
-                        chain_belief > 0.0
-                    ), "Removing chain already marked as invalid"
-
-                    causal_chain_space.bottom_up_belief_space[causal_chain_idx] = 0.0
-                    # self.qlearner.remove_causal_chain_from_local_Q(trial_name, causal_chain.chain_id)
-
-                    chains_idxs_removed.append(causal_chain_idx)
-                    chain_consistent = False
-                    if DEBUGGING:
-                        if (
-                            causal_chain_idx
-                            in causal_chain_space.structure_space.true_chain_idxs
-                        ):
-                            print_message(trial_count, attempt_count, "GRAPH REMOVED: ")
-                            causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
-                                [causal_chain_idx]
-                            )
-                            raise ValueError("true chain removed from plausible chains")
-                    # exit loop over observations, we are finished with this chain
-                    break
-
-                # advance a chain change index if there was a causal change (causal relation present).
-                if causal_observation.determine_causal_change_occurred():
-                    chain_change_idx += 1
-
-            if chain_consistent:
-                # print("GRAPH {} CONSISTENT through subchain {}:".format(causal_chain_idx, chain_change_idx))
-                # causal_chain_space.structure_space.pretty_print_causal_chains([causal_chain_idx])
-                chains_idxs_consistent.append(causal_chain_idx)
-
-        return chains_idxs_removed, chains_idxs_consistent
 
     def check_node_consistency(
         self, causal_chain_space, causal_observation, chain, chain_change_idx

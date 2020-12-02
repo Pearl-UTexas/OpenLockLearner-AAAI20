@@ -1,6 +1,5 @@
 import numpy as np
 import texttable
-
 from openlockagents.OpenLockLearner.causal_classes.DirichletDistribution import (
     DirichletDistribution,
 )
@@ -70,7 +69,9 @@ class AttributeScope:
                     if j >= len(self.indexed_distributions):
                         self.indexed_distributions.append(dict())
                     indexed_attribute_prior = prior["indexed"][j][attribute_name]
-                    self.indexed_distributions[j][attribute_name] = DirichletDistribution(
+                    self.indexed_distributions[j][
+                        attribute_name
+                    ] = DirichletDistribution(
                         dimensionalities[i], indexed_attribute_prior
                     )
 
@@ -108,7 +109,13 @@ class AttributeScope:
         )
 
     def compute_chain_posterior(
-        self, attribute_order, attributes_at_indices, actions_at_indices, use_confidence=False, use_indexed_distributions=True, use_action_distribution=True,
+        self,
+        attribute_order,
+        attributes_at_indices,
+        actions_at_indices,
+        use_confidence=False,
+        use_indexed_distributions=True,
+        use_action_distribution=True,
     ):
         posterior_at_indices = np.zeros((len(attributes_at_indices), 1))
         num_posteriors_computed = 0
@@ -116,9 +123,19 @@ class AttributeScope:
         # use index distributions for as many as possible, then use summary distribution to estimate posterior of remaining indices
         distributions = []
         if use_indexed_distributions:
-            distributions.extend([self.indexed_distributions[i] for i in range(len(self.indexed_distributions))])
+            distributions.extend(
+                [
+                    self.indexed_distributions[i]
+                    for i in range(len(self.indexed_distributions))
+                ]
+            )
         num_distributions = len(distributions)
-        distributions.extend([self.summary_distributions for i in range(num_distributions, len(attributes_at_indices))])
+        distributions.extend(
+            [
+                self.summary_distributions
+                for i in range(num_distributions, len(attributes_at_indices))
+            ]
+        )
 
         # compute node posteriors
         for i in range(len(distributions)):
@@ -134,14 +151,16 @@ class AttributeScope:
 
         # final posterior is product over each index (this should be normalized because the products are normalized and independent
         posterior = np.prod(posterior_at_indices)
-        # assert (
-        #     posterior != 0
-        # ), "Posterior of chain is zero - but chain has not been pruned"
         return posterior
 
-
     def _compute_node_posterior(
-        self, dist_dict, attribute_order, attributes, action, use_confidence=False, use_action=True
+        self,
+        dist_dict,
+        attribute_order,
+        attributes,
+        action,
+        use_confidence=False,
+        use_action=True,
     ):
         attribute_value_idxs = [
             self.labels[attribute_order[j]].index(attributes[j])
