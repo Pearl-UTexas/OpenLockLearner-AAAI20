@@ -3,8 +3,10 @@ import operator
 import random
 import sys
 from collections import defaultdict
+from typing import Sequence
 
 import numpy as np
+from openlock.common import Action
 from openlockagents.common.common import DEBUGGING
 from openlockagents.OpenLockLearner.learner.ModelBasedPlanner import ModelBasedPlanner
 from openlockagents.OpenLockLearner.util.common import (
@@ -34,7 +36,6 @@ class ModelBasedRLAgent:
         self,
         causal_chain_space,
         causal_chain_idx,
-        intervention_idxs_executed_set,
         interventions_executed_set,
         first_agent_trial,
         **kwargs
@@ -48,19 +49,13 @@ class ModelBasedRLAgent:
             causal_chain_idx
         ]
 
-        # noise = np.random.normal(self.noise_mu, self.noise_std_dev)
-        noise = 0
-
-        causal_chain_actions = causal_chain_space.structure_space.get_actions(
-            causal_chain_idx
+        causal_chain_actions = tuple(
+            causal_chain_space.structure_space.get_actions(causal_chain_idx)
         )
 
         # check if this chain is already in our solutions
         if causal_chain_actions in self.state[1:]:
             energy = MAX_ENERGY
-        # already executed this causal chain idx
-        # elif causal_chain_idx in intervention_idxs_executed:
-        #     energy = MAX_ENERGY
         # need to check that we haven't executed this action sequence before
         elif causal_chain_actions in interventions_executed_set:
             energy = MAX_ENERGY
@@ -99,28 +94,25 @@ class ModelBasedRLAgent:
 
             energy = bottom_up_term + top_down_term
 
-        final_probability = math.exp(-1 * energy) + noise
+        final_probability = math.exp(-energy)
         return final_probability
-        # return bottom_up_chain_belief
 
     def marginalize_node_transition_probability(
         self,
         action_beliefs,
         causal_chain_space,
-        causal_chain_idx,
-        causal_change_idx,
-        chain_posterior,
+        causal_chain_idx: int,
+        timestep: int,
+        chain_posterior: float,
     ):
         causal_chain_actions = causal_chain_space.structure_space.get_actions(
-            causal_chain_idx
+            causal_chain_idx, fill_delays=True
         )
-        causal_chain_attributes = causal_chain_space.structure_space.get_attributes(
-            causal_chain_idx
-        )
-        node_action = causal_chain_actions[causal_change_idx]
-
-        # marginalize the belief of this action by summing over chain posteriors
-        action_beliefs[node_action] += chain_posterior
+        if timestep < len(causal_chain_actions):
+            node_action = causal_chain_actions[timestep]
+            if node_action is not None:
+                # marginalize the belief of this action by summing over chain posteriors
+                action_beliefs[node_action] += chain_posterior
 
         return action_beliefs
 
@@ -133,9 +125,10 @@ class ModelBasedRLAgent:
     def greedy_action_policy(
         self,
         causal_chain_space,
-        causal_chain_idxs,
-        causal_change_idx,
-        action_sequence,
+        causal_chain_idxs: Sequence[int],
+        timestep: int,
+        action_sequence: Sequence[Action],
+        change_observed: Sequence[bool],
         first_agent_trial,
         intervention_idxs_executed=None,
         interventions_executed=None,
@@ -145,7 +138,7 @@ class ModelBasedRLAgent:
         Performs a greedy policy action by action, conditioned on the action sequence executed so far
         :param causal_chain_space: CausalChainSpace
         :param causal_chain_idxs: causal_chain_idxs to consider
-        :param causal_change_idx: current causal change index
+        :param timestep: current causal change index
         :param action_sequence: action sequence executed this attempt
         :param first_agent_trial: is this the agent's first trial?
         :param intervention_idxs_executed: indices of interventions executed this trial
@@ -155,12 +148,11 @@ class ModelBasedRLAgent:
         """
         interventions_executed_set = set(interventions_executed)
         intervention_idxs_executed = np.array(intervention_idxs_executed)
-        intervention_idxs_executed_set = set(intervention_idxs_executed.flatten())
 
         # find causal chains that contain this action sequence
         if len(action_sequence) > 0:
             causal_chain_idxs_with_action_seq = causal_chain_space.structure_space.find_causal_chain_idxs_with_actions(
-                action_sequence
+                action_sequence, change_observed
             )
             causal_chain_idxs = list(
                 set(causal_chain_idxs).intersection(causal_chain_idxs_with_action_seq)
@@ -194,7 +186,6 @@ class ModelBasedRLAgent:
             chain_posterior = self.compute_chain_transition_probability(
                 causal_chain_space=causal_chain_space,
                 causal_chain_idx=causal_chain_idx,
-                intervention_idxs_executed_set=intervention_idxs_executed_set,
                 interventions_executed_set=interventions_executed_set,
                 first_agent_trial=first_agent_trial,
                 **{"ablation": ablation}
@@ -204,11 +195,12 @@ class ModelBasedRLAgent:
             if chain_posterior == 0.0:
                 continue
 
+            # TODO(joschnei): Make consistent with timestep instead of causal_chain_idx
             action_beliefs = self.marginalize_node_transition_probability(
                 action_beliefs,
                 causal_chain_space,
                 causal_chain_idx,
-                causal_change_idx,
+                timestep,
                 chain_posterior,
             )
 
@@ -218,9 +210,15 @@ class ModelBasedRLAgent:
         if len(action_beliefs.values()) == 0:
             random_chain = self.random_chain_policy(causal_chain_idxs)
             random_chain_actions = causal_chain_space.structure_space.get_actions(
-                random_chain
+                random_chain, fill_delays=True
             )
-            action = random_chain_actions[causal_change_idx]
+            action = random_chain_actions[timestep]
+            while action is None:
+                random_chain = self.random_chain_policy(causal_chain_idxs)
+                random_chain_actions = causal_chain_space.structure_space.get_actions(
+                    random_chain, fill_delays=True
+                )
+            action = random_chain_actions[timestep]
             return action, {}
 
         assert min(action_beliefs.values()) >= 0, "Action beliefs has negative value"
@@ -273,14 +271,12 @@ class ModelBasedRLAgent:
         # top_down_idxs_with_positive_belief = [i for i in range(len(causal_chain_space.top_down_belief_space.beliefs)) if causal_chain_space.top_down_belief_space.beliefs[i] > 0]
 
         interventions_executed_set = set(interventions_executed)
-        intervention_idxs_executed_set = set(intervention_idxs_executed)
         chain_transition_probabilities = []
         for causal_chain_idx in causal_chain_idxs:
             chain_transition_probabilities.append(
                 self.compute_chain_transition_probability(
                     causal_chain_space=causal_chain_space,
                     causal_chain_idx=causal_chain_idx,
-                    intervention_idxs_executed_set=intervention_idxs_executed_set,
                     interventions_executed_set=interventions_executed_set,
                     first_agent_trial=first_agent_trial,
                     **{"ablation": ablation}

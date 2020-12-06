@@ -394,7 +394,7 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
             self.bottom_up_belief_space.num_idxs_with_belief_above_threshold
             < SANITY_CHECK_ELEMENT_LIMIT
         ):
-            assert self.bottom_up_belief_space.verify_true_chain_idxs_have_belief_above_threshold(
+            self.bottom_up_belief_space.verify_true_chain_idxs_have_belief_above_threshold(
                 self.structure_space.true_chain_idxs
             )
             assert (
@@ -442,8 +442,6 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
                 raise RuntimeError(
                     "Problem, setting true chain to 0.0 belief through bottom-up process"
                 )
-            # old way - belief is this chain's belief count divided by normalization factor
-            # causal_chain.belief = causal_chain.belief_count / normalization_factor
 
         return (
             self.bottom_up_belief_space.beliefs[starting_idx:ending_idx],

@@ -177,13 +177,8 @@ class AttributeScope:
             # two sampling options: from multinomial sampled from dirichlet or from multinormial frequency distribution
             # use sampled multinomial from Dirichlet (updated every renormalize() call
             dist = dist_dict[attribute].sampled_multinomial
-            # directly use the frequency distribution
-            # dist = dist_dict[attribute].frequency_distribution
 
             attribute_belief = dist[attribute_value_idxs[i]]
-            # if attribute_belief <= 0:
-            #     print("belief is <= 0")
-            #     raise ValueError("attribute belief has 0 probability")
             node_posterior *= attribute_belief
 
         # add in the action belief
@@ -192,9 +187,6 @@ class AttributeScope:
             action_idx = self.labels["action"].index(action.name)
             node_posterior *= action_dist[action_idx]
 
-        # these two lines compute full product, this normalizes to 1
-        # attr_product = np.outer(color_dist, position_dist)
-        # node_posterior = attr_product[color_idx][position_idx]
         return node_posterior
 
     def get_distribution_at_index(self, index):
@@ -319,11 +311,6 @@ class AttributeSpace:
             )
         else:
             if trial_name not in self.local_attributes.keys():
-                # create new local attributes from prior over global attributes
-                # self.local_attributes[trial_name] = AttributeScope(
-                #     self.global_attributes.get_attributes_info(),
-                #     prior=self.create_prior(self.global_attributes),
-                # )
                 self.local_attributes[trial_name] = AttributeScope(
                     self.global_attributes.get_attributes_info(),
                     prior=create_prior(

@@ -1,7 +1,12 @@
 import multiprocessing
+from typing import Sequence, Tuple
 
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed  # type: ignore
+from openlock.common import Action
 from openlockagents.common.common import DEBUGGING
+from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import (
+    CausalChainStructureSpace,
+)
 from openlockagents.OpenLockLearner.perceptual_causality_python.perceptual_causality import (
     load_perceptually_causal_relations,
 )
@@ -66,6 +71,8 @@ class ChainPruner:
         :param initial_observations: initial observations, specifically the attributes of every position
         :return: nothing
         """
+        # TODO(joschnei): This is pruning the true chains for some reason
+
         # TODO(mjedmonds): generalize this; it's manually defined for position
         position_to_color_dict = dict()
         attributes = [env.get_obj_attributes(obj) for obj in env.position_to_idx.keys()]
@@ -182,33 +189,33 @@ class ChainPruner:
         )
 
     def prune_inconsistent_chains_v2(
-        self, causal_chain_space, causal_chain_idxs, action_sequences_to_prune
+        self,
+        causal_chain_space: CausalChainStructureSpace,
+        causal_chain_idxs: Sequence[int],
+        sequences_to_prune: Sequence[Tuple[Sequence[Action], Sequence[bool]]],
     ):
-        # TODO(mjedmonds): implement a more efficient version of this function using the action sequences that should be pruned, then find the indices of those action sequences and prune
         chain_idxs_removed_total = set()
-        for pruned_seq in action_sequences_to_prune:
+        for actions, change_observed in sequences_to_prune:
+            # All the change_observeds end in False, but we're going to set the last value to True
+            # So we get all the chains that actually do precit a change in state.
+            assert not change_observed[-1]
+            change_observed = list(change_observed)
+            change_observed[-1] = True
+
             chain_idxs_removed_total.update(
                 causal_chain_space.structure_space.find_causal_chain_idxs_with_actions(
-                    pruned_seq
+                    actions, change_observed
                 )
             )
-        # filter down to the causal chains remaining
+
         # TODO(mjedmonds): this intersection should work, but is not
         chain_idxs_removed = set(causal_chain_idxs).intersection(
             chain_idxs_removed_total
         )
-        # chain_idxs_removed = chain_idxs_removed_total
         for chain_idx_to_prune in chain_idxs_removed:
             causal_chain_space.bottom_up_belief_space[chain_idx_to_prune] = 0
         chain_idxs_consistent = set(causal_chain_idxs) - chain_idxs_removed
-        # sanity check, ALL of the chains that could be pruned should be - regardless of what chain idxs are in causal_chain_idxs. But causal_chain_idxs should reflect the causal chains that haven't been pruned, so if this assertion fails, causal_chain_idxs has a problem
-        if DEBUGGING:
-            assert all(
-                [
-                    causal_chain_space.bottom_up_belief_space[i] == 0
-                    for i in chain_idxs_removed_total
-                ]
-            ), "causal_chain_idxs does not reflect all chains with positive belief. Should have removed chain that is not included in causal_chain_idxs"
+
         return chain_idxs_consistent, chain_idxs_removed
 
     def check_node_consistency(

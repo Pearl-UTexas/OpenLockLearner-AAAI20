@@ -3,8 +3,8 @@ import math
 import os
 import time
 
-import matplotlib.pyplot as plt
-import seaborn as sns
+import matplotlib.pyplot as plt  # type: ignore
+import seaborn as sns  # type: ignore
 from openlock.common import generate_effect_probabilities
 from openlock.settings_trial import PARAMS
 from openlockagents.common.agent import Agent

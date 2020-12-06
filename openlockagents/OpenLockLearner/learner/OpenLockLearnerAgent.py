@@ -3,12 +3,11 @@ import logging
 import math
 import random
 import time
+from typing import List, Tuple, Union
 
 import numpy as np
-import texttable
+import texttable  # type: ignore
 from openlock.common import ENTITY_STATES, Action
-
-# import agent (OpenLockAgents must be in PYTHONPATH)
 from openlockagents.common.agent import Agent
 from openlockagents.common.common import DEBUGGING
 from openlockagents.OpenLockLearner.causal_classes.BeliefSpace import (
@@ -298,20 +297,19 @@ class OpenLockLearnerAgent(Agent):
             start_time = time.time()
             self.env.reset()
 
-            causal_change_idx = 0
+            timestep = 0
             attempt_reward = 0
             intervention_info_gain = 0
             num_chains_pruned_this_attempt = 0
 
             causal_observations = []
-            action_sequence = []
-            causal_action_sequence = []
-            action_sequences_that_should_be_pruned = set()
-            causal_change_idxs = []
+            action_sequence: List[int] = list()
+            change_observed: List[bool] = list()
             action_beliefs_this_attempt = []
 
+            sequences_to_prune: List[Tuple[List[Action], List[bool]]] = list()
+
             while not self.env.determine_attempt_finished():
-                prev_causal_change_idx = causal_change_idx
                 (
                     chain_idxs_with_positive_belief,
                     bottom_up_chain_idxs_with_positive_belief,
@@ -335,8 +333,9 @@ class OpenLockLearnerAgent(Agent):
                     ) = self.model_based_agent.greedy_action_policy(
                         causal_chain_space=self.causal_chain_space,
                         causal_chain_idxs=chain_idxs_with_positive_belief,
-                        causal_change_idx=causal_change_idx,
-                        action_sequence=causal_action_sequence,
+                        timestep=timestep,
+                        action_sequence=action_sequence,
+                        change_observed=change_observed,
                         intervention_idxs_executed=self.intervention_chain_idxs_per_attempt[
                             self.current_trial_name
                         ],
@@ -350,7 +349,6 @@ class OpenLockLearnerAgent(Agent):
                     action_beliefs_this_attempt.append(action_beliefs)
 
                 action_sequence.append(action)
-                causal_change_idxs.append(causal_change_idx)
 
                 print_message(
                     self.trial_count,
@@ -363,21 +361,17 @@ class OpenLockLearnerAgent(Agent):
 
                 # execute action
                 reward, state_prev, state_cur = self.execute_action_intervention(action)
-                causal_change_idx = self.update_bottom_up_attribute_beliefs(
-                    action, trial_selected, causal_change_idx
-                )
-
-                attempt_reward += reward
-
-                # if we experienced a causal change, append the action to the causal action sequence
-                if prev_causal_change_idx != causal_change_idx:
-                    causal_action_sequence.append(action)
-                else:
-                    # If the action didn't do anything, prune all the sequences that end in that
-                    # action.
-                    action_sequences_that_should_be_pruned.add(
-                        tuple(causal_action_sequence + [action])
+                change_observed.append(state_cur != state_prev)
+                if not change_observed[-1]:
+                    sequences_to_prune.append(
+                        (list(action_sequence), list(change_observed))
                     )
+
+                self.update_bottom_up_attribute_beliefs(
+                    action, trial_selected, timestep
+                )
+                timestep += 1
+                attempt_reward += reward
 
                 # create observations from outcome
                 causal_observations = self.causal_learner.create_causal_observation(
@@ -386,14 +380,14 @@ class OpenLockLearnerAgent(Agent):
                     state_cur,
                     state_prev,
                     causal_observations,
-                    causal_change_idx,
                     self.trial_count,
                     self.attempt_count,
                 )
 
-                self.causal_chain_space.structure_space.pretty_print_causal_observations(
-                    [causal_observations[-1]], print_messages=self.print_messages
-                )
+                if len(causal_observations) > 0:
+                    self.causal_chain_space.structure_space.pretty_print_causal_observations(
+                        [causal_observations[-1]], print_messages=self.print_messages
+                    )
 
                 # update causal models
                 (
@@ -405,7 +399,7 @@ class OpenLockLearnerAgent(Agent):
                     env=self.env,
                     causal_chain_space=self.causal_chain_space,
                     causal_chain_idxs=bottom_up_chain_idxs_with_positive_belief,
-                    action_sequences_to_prune=action_sequences_that_should_be_pruned,
+                    sequences_to_prune=sequences_to_prune,
                     trial_name=trial_selected,
                     trial_count=self.trial_count,
                     attempt_count=self.attempt_count,
@@ -431,29 +425,15 @@ class OpenLockLearnerAgent(Agent):
                         self.causal_chain_space.structure_space.true_chain_idxs
                     ), "True chains not in instantiated schemas!"
 
-            # if we are debugging, using pruning, and have action sequences that should be pruned, verify they are
-            if (
-                DEBUGGING
-                and action_sequences_that_should_be_pruned
-                and not self.ablation.PRUNING
-            ):
-                # verify that all chain idxs that should be pruned are actually pruned
-                assert all(
-                    [
-                        self.causal_chain_space.bottom_up_belief_space[pruned_idx] == 0
-                        for pruned_seq in action_sequences_that_should_be_pruned
-                        for pruned_idx in self.causal_chain_space.structure_space.find_causal_chain_idxs_with_actions(
-                            pruned_seq
-                        )
-                    ]
-                ), "action sequence that should be pruned is not!"
-
             # convert to tuple for hashability
             action_sequence = tuple(action_sequence)
 
-            # determine casual chain executed
-            intervention_chain_idxs = self.causal_chain_space.structure_space.find_causal_chain_idxs_with_actions(
-                action_sequence
+            # Get the one causal chain associated with this specific sequence of actions
+            # So we never do exactly this again
+            intervention_chain_idxs = set(
+                self.causal_chain_space.structure_space.find_causal_chain_idxs_with_actions(
+                    action_sequence, [True] * len(action_sequence)
+                )
             )
             # check to make sure the intervention indices executed this attempt are not in the set we have already executed
             assert not intervention_chain_idxs.intersection(
@@ -500,8 +480,6 @@ class OpenLockLearnerAgent(Agent):
                     num_solutions_remaining=num_solutions_remaining,
                     multiproc=self.multiproc,
                 )
-
-            # self.pretty_print_last_results()
 
             self.print_attempt_update(
                 action_sequence,
@@ -774,13 +752,13 @@ class OpenLockLearnerAgent(Agent):
 
         return intervention_outcomes, intervention_reward, causal_change_index
 
-    def execute_action_intervention(self, action):
+    def execute_action_intervention(self, action: Union[str, Action]):
         if isinstance(action, str):
             action_env = self.env.action_map[action]
         elif isinstance(action, Action):
             action_env = self.env.action_map[action.name + "_" + action.obj]
         else:
-            raise TypeError("Unexpected action type")
+            raise TypeError(f"Unexpected action type: {type(action)}, {action}")
 
         print_message(
             self.trial_count,
@@ -788,7 +766,9 @@ class OpenLockLearnerAgent(Agent):
             "Executing action: {}".format(action),
             self.print_messages,
         )
-        next_state, reward, done, opt = self.env.step(action_env)
+        # TODO(joschnei): We should be able to use next_state instead of the outcome stuff below,
+        # except I have no idea what the outcome stuff is doing.
+        next_state, reward, _, _ = self.env.step(action_env)
 
         attempt_results = self.get_last_results()
 
@@ -798,8 +778,8 @@ class OpenLockLearnerAgent(Agent):
         return reward, state_prev, state_cur
 
     def update_bottom_up_attribute_beliefs(
-        self, action, trial_selected, causal_change_index
-    ):
+        self, action, trial_selected, timestep: int
+    ) -> None:
         # if env changed state, accept this observation into attribute model and update attribute model
         if self.env.determine_fluent_change():
             obj = action.obj
@@ -817,13 +797,10 @@ class OpenLockLearnerAgent(Agent):
             self.causal_chain_space.bottom_up_belief_space.attribute_space.add_frequencies(
                 attributes_to_add,
                 trial_selected,
-                causal_change_index,
+                timestep,
                 global_alpha_increase=self.global_alpha_update,
                 local_alpha_increase=self.local_alpha_update,
             )
-            causal_change_index += 1
-
-        return causal_change_index
 
     def update_instantiated_schema_beliefs(self, chain_idxs_pruned):
         self.instantiated_schema_space.update_instantiated_schema_beliefs(

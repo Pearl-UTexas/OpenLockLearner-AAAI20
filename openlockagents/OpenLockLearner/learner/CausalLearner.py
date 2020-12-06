@@ -1,6 +1,12 @@
 import time
+from typing import Sequence, Tuple
 
+from openlock.common import Action
+from openlock.envs.openlock_env import OpenLockEnv
 from openlockagents.common.common import DEBUGGING
+from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import (
+    CausalChainStructureSpace,
+)
 from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
     CausalObservation,
     CausalRelation,
@@ -18,13 +24,13 @@ class CausalLearner:
     # updates the learner's model based on the results
     def update_bottom_up_causal_model(
         self,
-        env,
-        causal_chain_space,
-        causal_chain_idxs,
-        action_sequences_to_prune,
-        trial_name,
-        trial_count,
-        attempt_count,
+        env: OpenLockEnv,
+        causal_chain_space: CausalChainStructureSpace,
+        causal_chain_idxs: Sequence[int],
+        sequences_to_prune: Sequence[Tuple[Sequence[Action], Sequence[bool]]],
+        trial_name: str,
+        trial_count: int,
+        attempt_count: int,
         prune_inconsitent_chains=True,
         multiproc=False,
     ):
@@ -47,7 +53,7 @@ class CausalLearner:
             ) = self.chain_pruner.prune_inconsistent_chains_v2(
                 causal_chain_space=causal_chain_space,
                 causal_chain_idxs=causal_chain_idxs,
-                action_sequences_to_prune=action_sequences_to_prune,
+                sequences_to_prune=sequences_to_prune,
             )
 
         if DEBUGGING:
@@ -124,7 +130,6 @@ class CausalLearner:
                 cur_state,
                 prev_state,
                 causal_observations,
-                causal_change_idx,
                 trial_count,
                 attempt_count,
             )
@@ -137,7 +142,6 @@ class CausalLearner:
         cur_state,
         prev_state,
         causal_observations,
-        causal_change_idx,
         trial_count,
         attempt_count,
     ):
@@ -187,22 +191,5 @@ class CausalLearner:
                     ),
                     info_gain=None,
                 )
-            )
-            causal_change_idx += 1
-
-        else:
-            # prune chains based on action at current state_change_idx_this_attempt
-            causal_observations.extend(
-                [
-                    CausalObservation(
-                        CausalRelation(
-                            action=action,
-                            attributes=None,
-                            causal_relation_type=None,
-                            precondition=precondition,
-                        ),
-                        info_gain=None,
-                    )
-                ]
             )
         return causal_observations

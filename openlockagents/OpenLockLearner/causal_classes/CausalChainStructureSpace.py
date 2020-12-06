@@ -4,10 +4,13 @@ import random
 import time
 from collections import defaultdict
 from operator import itemgetter
+from typing import List, Optional, Sequence
 
-import jsonpickle
+import jsonpickle  # type: ignore
 import numpy as np
-import texttable
+import texttable  # type: ignore
+from numpy.lib.index_tricks import fill_diagonal
+from openlock.common import Action
 from openlock.logger_env import ActionLog
 from openlockagents.common.io.log_io import pretty_write
 from openlockagents.OpenLockLearner.util.common import (
@@ -224,15 +227,41 @@ class CausalChainStructureSpace:
 
         return matching_chain_idxs
 
-    def find_causal_chain_idxs_with_actions(self, actions):
-        # setup the constraints - want to include
-        inclusion_constraints = []
-        for subchain_idx in range(len(actions)):
-            inclusion_constraints.append({"action": actions[subchain_idx]})
-        # search for the causal chains satisfying all of the constraints
-        matching_chain_idxs = self.find_all_causal_chains_satisfying_constraints(
-            inclusion_constraints
-        )
+    def find_causal_chain_idxs_with_actions(
+        self, actions: Sequence[Action], change_observed: Sequence[bool]
+    ) -> List[int]:
+        assert len(actions) == len(change_observed)
+        matching_chain_idxs = list()
+        # TODO(joschnei): Consider going back to the system where you grab all the chains
+        # match constraints at every timestep and then take an intersection
+        # Probably faster
+        for idx, chain in enumerate(self.causal_chains):
+            timestep = 0
+            skip_chain = False
+            for causal_relation in chain:
+                if skip_chain:
+                    break
+
+                if timestep >= len(actions):
+                    break
+
+                if not change_observed[timestep]:
+                    timestep += 1
+                    break
+                elif causal_relation.action != actions[timestep]:
+                    skip_chain = True
+                    break
+
+                for dud_timestep in range(1, causal_relation.delay + 1):
+                    if timestep + dud_timestep >= len(actions):
+                        break
+                    elif change_observed[timestep + dud_timestep]:
+                        skip_chain = True
+                        break
+
+                timestep += 1 + causal_relation.delay
+            if not skip_chain:
+                matching_chain_idxs.append(idx)
         return matching_chain_idxs
 
     def find_all_causal_chains_satisfying_constraints(
@@ -377,9 +406,17 @@ class CausalChainStructureSpace:
     def get_outcome(self, index):
         return tuple([x.causal_relation_type[1] for x in self.causal_chains[index]])
 
-    def get_actions(self, index):
+    def get_actions(
+        self, index: int, fill_delays: bool = False
+    ) -> Sequence[Optional[Action]]:
         # TODO(mjedmonds): 0 is hacked in here, need a way to index by the attribute we are indexing state on
-        return tuple([x.action for x in self.causal_chains[index]])
+        actions = list()
+        for causal_relation in self.causal_chains[index]:
+            actions.append(causal_relation.action)
+            if fill_delays:
+                # Add None for actions which don't matter.
+                actions.extend([None] * causal_relation.delay)
+        return actions
 
     def get_attributes(self, index):
         return tuple([x.attributes for x in self.causal_chains[index]])
@@ -409,10 +446,10 @@ class CausalChainStructureSpace:
         self.true_chains = true_chains
         self.true_chain_idxs = []
         for true_chain in self.true_chains:
-            if true_chain not in self.causal_chains:
-                logging.warning(
-                    f"Causal chain {true_chain} not in {self.causal_chains}"
-                )
+            # if true_chain not in self.causal_chains:
+            #     logging.warning(
+            #         f"Causal chain {true_chain} not in {self.causal_chains}"
+            #     )
             chain_idx = self.causal_chains.index(true_chain)
             self.true_chain_idxs.append(chain_idx)
 
@@ -474,65 +511,6 @@ class CausalChainStructureSpace:
             sampled_causal_chain_idxs.update(new_idxs)
 
         return (list(sampled_causal_chain_idxs), all_chains_executed)
-
-    def check_if_chain_adheres_to_causal_relations(
-        self, causal_chain, causal_relations
-    ):
-        chain_adheres = True  # assume chain adheres to constraints, prove otherwise
-
-        for causal_relation in causal_relations:
-
-            if not self.check_if_chain_adheres_to_relation(
-                causal_chain, causal_relation
-            ):
-                chain_adheres = False
-                break
-        return chain_adheres
-
-    def check_if_chain_adheres_to_relation(self, causal_chain, causal_relation):
-        """
-        This function checks if the chain contains a matching state, action and attribute.
-        If all of the above match, and the causal_relation_type does not match, this chain
-        does not adhere to the relation
-        :param causal_chain:
-        :param causal_relation:
-        :return:
-        """
-        causal_relation_action = causal_relation.action
-        causal_relation_type = causal_relation.causal_relation_type
-        causal_relation_attributes = causal_relation.attributes
-
-        chain_actions = causal_chain.actions
-        chain_attributes = causal_chain.attributes
-
-        # find indices where states, actions, and attributes of the chain match the causal relation
-        # if any of them don't match, we can't disprove this chain
-        matching_indices = []
-        for i in range(num_states):
-            if (
-                chain_states[i] == causal_relation_state
-                and chain_actions[i] == causal_relation_action
-                and chain_attributes[i] == causal_relation_attributes
-            ):
-                matching_indices.append(i)
-        # matching_indices = [
-        #     i
-        #     for i in range(num_states)
-        #     if chain_states[i] == causal_relation_state
-        #     and chain_actions[i] == causal_relation_action
-        #     and chain_attributes[i] == causal_relation_attributes
-        # ]
-
-        # check causal relation types match for all matching schema indices
-        for i in range(len(matching_indices)):
-            schema_idx = matching_indices[i]
-            schema_state = "state" + str(schema_idx)
-            chain_causal_relation_type = self.extract_causal_relation_from_chain(
-                causal_chain, schema_state
-            )
-            if chain_causal_relation_type != causal_relation_type:
-                return False
-        return True
 
     def get_all_chains_with_actions(self, actions):
         chains = []
@@ -699,5 +677,4 @@ class CausalChainStructureSpace:
         return tuple(states)
 
     def write_to_json(self, filename):
-        json_encoding_str = jsonpickle.encode(self)
         pretty_write(jsonpickle, filename)
