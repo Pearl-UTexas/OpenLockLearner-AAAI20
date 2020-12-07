@@ -2,7 +2,7 @@
 
 import itertools
 from itertools import product
-from typing import Sequence
+from typing import Dict, Sequence
 
 import constraint
 import numpy as np
