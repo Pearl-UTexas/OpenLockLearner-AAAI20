@@ -144,7 +144,9 @@ class CausalRelationSpace:
 
     @staticmethod
     def find_relations_satisfying_constraints(
-        causal_relations, inclusion_constraints, exclusion_constraints=None
+        causal_relations: Sequence[CausalRelation],
+        inclusion_constraints: Dict[str, Union[Any, List[Any]]],
+        exclusion_constraints: Sequence[CausalRelation] = None,
     ):
         """
         Finds all causal relations adhere to the constraints specified in constraints_dict
@@ -163,9 +165,12 @@ class CausalRelationSpace:
             constraints_satisfied = True
             # verify relation has the required constraints
             if inclusion_constraints is not None:
-                for constraint_key, constraint_value in inclusion_constraints.items():
-                    relation_value = getattr(causal_relation, constraint_key)
-                    if relation_value != constraint_value:
+                for attribute, constraint_value in inclusion_constraints.items():
+                    relation_value = getattr(causal_relation, attribute)
+                    if relation_value != constraint_value and not (
+                        isinstance(constraint_value, list)
+                        and relation_value in constraint_value
+                    ):
                         constraints_satisfied = False
                         break
             if constraints_satisfied:

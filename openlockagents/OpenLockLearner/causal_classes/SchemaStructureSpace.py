@@ -1,21 +1,19 @@
 import copy
-import time
-from collections import defaultdict, namedtuple, OrderedDict
-import texttable
 import pickle as pkl
+import time
+from collections import OrderedDict, defaultdict, namedtuple
 
-import numpy as np
 import networkx as nx
-
-from openlockagents.OpenLockLearner.generator.schema_generator import (
-    generate_schemas,
-    generate_atomic_schema_graphs,
-    UNASSIGNED_CHAIN,
-    NO_CONSTRAINT,
-    convert_chains_to_edges,
-)
+import numpy as np
+import texttable
 from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelation
-
+from openlockagents.OpenLockLearner.generator.schema_generator import (
+    NO_CONSTRAINT,
+    UNASSIGNED_CHAIN,
+    convert_chains_to_edges,
+    generate_atomic_schema_graphs,
+    generate_schemas,
+)
 
 AbstractConstraint = namedtuple("AbstractConstraint", ["chain_index", "subchain_index"])
 InstantiatedConstraint = namedtuple(
@@ -175,11 +173,7 @@ class InstantiatedSchemaStructureSpace(SchemaStructureSpace):
         self.schemas = []
 
     def get_all_causal_chain_idxs_in_schemas(self):
-        return [
-            idx
-            for schema in self.schemas
-            for idx in schema.chain_idx_assignments
-        ]
+        return [idx for schema in self.schemas for idx in schema.chain_idx_assignments]
 
     def find_chain_idx_in_schemas(self, chain_idx):
         return [
@@ -220,7 +214,9 @@ class AtomicSchemaStructureSpace(SchemaStructureSpace):
                     schema_idx,
                     self.schemas[schema_idx].edges,
                     atomic_schema_belief_space.beliefs[schema_idx],
-                    atomic_schema_belief_space.schema_dirichlet.frequency_count[schema_idx]
+                    atomic_schema_belief_space.schema_dirichlet.frequency_count[
+                        schema_idx
+                    ],
                 ]
                 for schema_idx in range(len(self.schemas))
             ]
@@ -267,7 +263,6 @@ class AbstractSchemaStructureSpace(SchemaStructureSpace):
     ):
         # all chains have been instantiated, create schema and add to instantiated schemas
         if UNASSIGNED_CHAIN not in chain_assignments:
-            # causal_chain_space.pretty_print_causal_chains(chain_assignments)
             new_instantiated_schema = InstantiatedSchema(
                 abstract_schema, chain_assignments
             )
@@ -279,13 +274,13 @@ class AbstractSchemaStructureSpace(SchemaStructureSpace):
             try:
                 abstract_chain = abstract_schema.chains[chain_index]
             except IndexError:
-                print("problem")
                 raise IndexError("Invalid chain index in abstract schema")
             # determine all constraints on this chain from already-instantiated chains
             constraint_chains_by_subchain_index = abstract_schema.constraints_between_chains[
                 chain_index
             ]
-            # inclusion constraints come from instantiated chains with shared nodes - the instantiated nodes place constraints on what is permitted in this chain
+            # inclusion constraints come from instantiated chains with shared nodes
+            # the instantiated nodes place constraints on what is permitted in this chain
             inclusion_constraints = [
                 OrderedDict() for i in range(len(abstract_chain) + 1)
             ]
@@ -324,18 +319,14 @@ class AbstractSchemaStructureSpace(SchemaStructureSpace):
                             # if we have multiple constraints we must satisfy at this subchain, those constraints must match
                             # if the constraints do not match (if below), then this chain assignment is incompatible with this abstract schema.
                             # i.e. there is not possible way to assign these chains and form the given abstract schema
-                            if len(inclusion_constraints[subchain_idx]) > 0 and inclusion_constraints[subchain_idx] != constraints:
+                            if (
+                                len(inclusion_constraints[subchain_idx]) > 0
+                                and inclusion_constraints[subchain_idx] != constraints
+                            ):
                                 # if we reach this point, there is no possible valid assignment using the provided chain_assignment.
                                 # the constraints imposed by the existing chain_assignments are in conflict,
                                 # there are not valid instantiated schemas down this portion of the search space
                                 return
-                                # try:
-                                #     assert (
-                                #         inclusion_constraints[subchain_idx] == constraints
-                                #     ), "Constraint is already instantiated"
-                                # except AssertionError:
-                                #     print("problem")
-                                #     raise AssertionError("Constraint is already instantiated")
 
                             inclusion_constraints[subchain_idx] = constraints
                 # if we added constraints at this subchain, the postcondition of this
@@ -350,8 +341,7 @@ class AbstractSchemaStructureSpace(SchemaStructureSpace):
 
             # find all causal chain indices that adhere to constraints
             causal_chain_idxs_satisfying_constraints = causal_chain_structure_space.find_all_causal_chains_satisfying_constraints(
-                inclusion_constraints,
-                exclusion_constraints,
+                inclusion_constraints, exclusion_constraints,
             )
             # remove excluded chain indices from the constraints (these chains have been pruned already)
             causal_chain_idxs_satisfying_constraints = (

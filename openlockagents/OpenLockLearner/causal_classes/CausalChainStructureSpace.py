@@ -227,14 +227,12 @@ class CausalChainStructureSpace:
 
         return matching_chain_idxs
 
-    def find_causal_chain_idxs_with_actions(
-        self, actions: Sequence[Action], change_observed: Sequence[bool]
+    def legacy_chain_search(
+        self, actions: Sequence[Action], change_observed: Sequence[bool],
     ) -> List[int]:
-        assert len(actions) == len(change_observed)
+        """ Finds all chains consistent with the given action sequence and action success vector
+        by brute force searching over all chains, which is slow, but this has been debugged."""
         matching_chain_idxs = list()
-        # TODO(joschnei): Consider going back to the system where you grab all the chains
-        # match constraints at every timestep and then take an intersection
-        # Probably faster
         for idx, chain in enumerate(self.causal_chains):
             timestep = 0
             skip_chain = False
@@ -247,7 +245,7 @@ class CausalChainStructureSpace:
 
                 if not change_observed[timestep]:
                     timestep += 1
-                    break
+                    continue
                 elif causal_relation.action != actions[timestep]:
                     skip_chain = True
                     break
@@ -263,6 +261,38 @@ class CausalChainStructureSpace:
             if not skip_chain:
                 matching_chain_idxs.append(idx)
         return matching_chain_idxs
+
+    def find_causal_chain_idxs_with_actions(
+        self,
+        actions: Sequence[Action],
+        change_observed: Sequence[bool],
+        legacy: bool = False,
+    ) -> List[int]:
+        assert len(actions) == len(change_observed)
+
+        if legacy:
+            return self.legacy_chain_search(actions, change_observed)
+
+        inclusion_constraints = []
+        max_delay = 0
+        last_good_action = None
+        for action, change in zip(actions, change_observed):
+            if not change:
+                max_delay += 1
+                continue
+
+            if last_good_action is not None:
+                inclusion_constraints.append(
+                    {"action": last_good_action, "delay": list(range(max_delay + 1))}
+                )
+
+            last_good_action = action
+            max_delay = 0
+
+        # The last good action has no constraint on delay, as any number of future actions might fail.
+        inclusion_constraints.append({"action": last_good_action})
+
+        return self.find_all_causal_chains_satisfying_constraints(inclusion_constraints)
 
     def find_all_causal_chains_satisfying_constraints(
         self, inclusion_constraints, exclusion_constraints=None
@@ -291,25 +321,20 @@ class CausalChainStructureSpace:
                         subchain_index
                     ] = ALL_CAUSAL_CHAINS
                     continue
-
-                # now we have a list of all relations that satisfy the constraint at this subchain index
-                # find the causal chain indices that have these relations at this subchain index
-                causal_chain_indices_satisfying_constraints_at_subchain_indices[
-                    subchain_index
-                ] = self.find_causal_chain_indices_satisfying_constraints_at_subchain_index(
-                    subchain_index, causal_relations_satisfying_constraints
-                )
             else:
                 # remove all exclusion constraints from possible relations at this index
                 causal_relations_satisfying_constraints = (
                     self.subchain_indexed_domains[subchain_index]
                     - exclusion_constraints
                 )
-                causal_chain_indices_satisfying_constraints_at_subchain_indices[
-                    subchain_index
-                ] = self.find_causal_chain_indices_satisfying_constraints_at_subchain_index(
-                    subchain_index, causal_relations_satisfying_constraints
-                )
+
+            # now we have a list of all relations that satisfy the constraint at this subchain index
+            # find the causal chain indices that have these relations at this subchain index
+            causal_chain_indices_satisfying_constraints_at_subchain_indices[
+                subchain_index
+            ] = self.find_causal_chain_indices_satisfying_constraints_at_subchain_index(
+                subchain_index, causal_relations_satisfying_constraints
+            )
         # if inclusion_constraints did not specify constraints for every subchain, find the remaining
         for subchain_index in range(
             len(inclusion_constraints), len(self.subchain_indexed_domains)
