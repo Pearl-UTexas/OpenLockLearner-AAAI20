@@ -4,7 +4,7 @@ import random
 import time
 from collections import defaultdict
 from operator import itemgetter
-from typing import List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import jsonpickle  # type: ignore
 import numpy as np
@@ -13,6 +13,7 @@ from numpy.lib.index_tricks import fill_diagonal
 from openlock.common import Action
 from openlock.logger_env import ActionLog
 from openlockagents.common.io.log_io import pretty_write
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelation
 from openlockagents.OpenLockLearner.util.common import (
     ALL_CAUSAL_CHAINS,
     check_for_duplicates,
@@ -273,7 +274,7 @@ class CausalChainStructureSpace:
         if legacy:
             return self.legacy_chain_search(actions, change_observed)
 
-        inclusion_constraints = []
+        inclusion_constraints: List[Dict[str, Union[Any, List[Any]]]] = []
         max_delay = 0
         last_good_action = None
         for action, change in zip(actions, change_observed):
@@ -295,7 +296,9 @@ class CausalChainStructureSpace:
         return self.find_all_causal_chains_satisfying_constraints(inclusion_constraints)
 
     def find_all_causal_chains_satisfying_constraints(
-        self, inclusion_constraints, exclusion_constraints=None
+        self,
+        inclusion_constraints: Sequence[Dict[str, Union[Any, List[Any]]]],
+        exclusion_constraints: Sequence[Sequence[CausalRelation]] = None,
     ):
         if exclusion_constraints is None:
             exclusion_constraints = set()

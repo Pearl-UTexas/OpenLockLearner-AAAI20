@@ -167,12 +167,21 @@ class CausalRelationSpace:
             if inclusion_constraints is not None:
                 for attribute, constraint_value in inclusion_constraints.items():
                     relation_value = getattr(causal_relation, attribute)
-                    if relation_value != constraint_value and not (
-                        isinstance(constraint_value, list)
-                        and relation_value in constraint_value
-                    ):
+
+                    if isinstance(constraint_value, list):
+                        if isinstance(relation_value, list):
+                            if constraint_value != relation_value:
+                                constraints_satisfied = False
+                                break
+                        # This doesn't work if constraint_value is List[List] and relation_value
+                        # is List, so don't do that.
+                        elif relation_value in constraint_value:
+                            constraints_satisfied = False
+                            break
+                    elif constraint_value != relation_value:
                         constraints_satisfied = False
                         break
+
             if constraints_satisfied:
                 relations_satisfying_constraints.append(causal_relation)
 
