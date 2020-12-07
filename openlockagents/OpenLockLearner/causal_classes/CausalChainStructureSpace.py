@@ -13,11 +13,10 @@ from numpy.lib.index_tricks import fill_diagonal
 from openlock.common import Action
 from openlock.logger_env import ActionLog
 from openlockagents.common.io.log_io import pretty_write
-from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelation
-from openlockagents.OpenLockLearner.util.common import (
-    ALL_CAUSAL_CHAINS,
-    check_for_duplicates,
-)
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import \
+    CausalRelation
+from openlockagents.OpenLockLearner.util.common import (ALL_CAUSAL_CHAINS,
+                                                        check_for_duplicates)
 
 
 class CausalChainStructureSpace:
@@ -290,8 +289,9 @@ class CausalChainStructureSpace:
             last_good_action = action
             max_delay = 0
 
-        # The last good action has no constraint on delay, as any number of future actions might fail.
-        inclusion_constraints.append({"action": last_good_action})
+        if last_good_action is not None:
+            # The last good action has no constraint on delay, as any number of future actions might fail.
+            inclusion_constraints.append({"action": last_good_action})
 
         return self.find_all_causal_chains_satisfying_constraints(inclusion_constraints)
 
