@@ -361,7 +361,11 @@ class OpenLockLearnerAgent(Agent):
 
                 # execute action
                 reward, state_prev, state_cur = self.execute_action_intervention(action)
+                # TODO(joschnei): This is bugged, seems to be essentially random when its true or false.
+                # It definitely can be both.
+                logging.debug(f"state_cur={state_cur}, state_prev={state_prev}")
                 change_observed.append(state_cur != state_prev)
+                logging.debug(f"change_observed={change_observed[-1]}")
                 if not change_observed[-1]:
                     sequences_to_prune.append(
                         (list(action_sequence), list(change_observed))

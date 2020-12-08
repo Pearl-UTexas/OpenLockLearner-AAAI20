@@ -13,10 +13,11 @@ from numpy.lib.index_tricks import fill_diagonal
 from openlock.common import Action
 from openlock.logger_env import ActionLog
 from openlockagents.common.io.log_io import pretty_write
-from openlockagents.OpenLockLearner.causal_classes.CausalRelation import \
-    CausalRelation
-from openlockagents.OpenLockLearner.util.common import (ALL_CAUSAL_CHAINS,
-                                                        check_for_duplicates)
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelation
+from openlockagents.OpenLockLearner.util.common import (
+    ALL_CAUSAL_CHAINS,
+    check_for_duplicates,
+)
 
 
 class CausalChainStructureSpace:
@@ -232,6 +233,7 @@ class CausalChainStructureSpace:
     ) -> List[int]:
         """ Finds all chains consistent with the given action sequence and action success vector
         by brute force searching over all chains, which is slow, but this has been debugged."""
+        # TODO(joschnei): Probably delete this, I never got it to work in the first place.
         matching_chain_idxs = list()
         for idx, chain in enumerate(self.causal_chains):
             timestep = 0
@@ -270,6 +272,8 @@ class CausalChainStructureSpace:
     ) -> List[int]:
         assert len(actions) == len(change_observed)
 
+        logging.debug(f"actions={actions}, change_observed={change_observed}")
+
         if legacy:
             return self.legacy_chain_search(actions, change_observed)
 
@@ -282,9 +286,12 @@ class CausalChainStructureSpace:
                 continue
 
             if last_good_action is not None:
-                inclusion_constraints.append(
-                    {"action": last_good_action, "delay": list(range(max_delay + 1))}
-                )
+                new_constraint = {
+                    "action": last_good_action,
+                    "delay": list(range(max_delay + 1)),
+                }
+                logging.debug(f"Adding constraint {new_constraint}")
+                inclusion_constraints.append(new_constraint)
 
             last_good_action = action
             max_delay = 0
