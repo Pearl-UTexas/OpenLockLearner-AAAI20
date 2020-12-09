@@ -368,7 +368,9 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
 
     # updates beliefs based on counts stored with each chain
     def update_bottom_up_beliefs(self, attribute_order, trial_name, multiproc=False):
-
+        assert self.bottom_up_belief_space.check_true_chain_idxs_have_belief_above_threshold(
+            self.structure_space.true_chain_idxs
+        ), "True chains zero before bottom up update."
         if not multiproc:
             (
                 self.bottom_up_belief_space.beliefs,
@@ -385,19 +387,26 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
                 self, attribute_order, trial_name
             )
 
+        if (
+            self.bottom_up_belief_space.num_idxs_with_belief_above_threshold
+            < SANITY_CHECK_ELEMENT_LIMIT
+        ):
+            assert self.bottom_up_belief_space.check_true_chain_idxs_have_belief_above_threshold(
+                self.structure_space.true_chain_idxs
+            ), "True chains zero'd out before renormalizing"
+
         # renormalize beliefs
         max_chains = self.bottom_up_belief_space.renormalize_beliefs(
             multiproc=multiproc
         )
 
-        # sanity checks in testing environments (small chain space)
         if (
             self.bottom_up_belief_space.num_idxs_with_belief_above_threshold
             < SANITY_CHECK_ELEMENT_LIMIT
         ):
-            self.bottom_up_belief_space.verify_true_chain_idxs_have_belief_above_threshold(
+            assert self.bottom_up_belief_space.check_true_chain_idxs_have_belief_above_threshold(
                 self.structure_space.true_chain_idxs
-            )
+            ), "True chains zero'd out after renormalizing."
             assert (
                 self.bottom_up_belief_space.verify_num_idxs_with_belief_above_threshold_is_correct()
             )
@@ -427,7 +436,7 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
                 use_indexed_distributions=self.bottom_up_belief_space.use_indexed_distributions,
                 use_action_distribution=self.bottom_up_belief_space.use_action_distribution,
             )
-            self.bottom_up_belief_space.beliefs[causal_chain_idx] = new_belief
+
             if (
                 new_belief == 0.0
                 and causal_chain_idx in self.structure_space.true_chain_idxs

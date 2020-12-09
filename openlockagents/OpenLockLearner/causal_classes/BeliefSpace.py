@@ -149,7 +149,7 @@ class BeliefSpace:
         if not multiproc:
             (
                 max_elements,
-                max_belief,
+                _,
                 _,
                 num_elements_with_belief_above_threshold,
                 _,
@@ -164,7 +164,7 @@ class BeliefSpace:
         else:
             (
                 max_elements,
-                max_belief,
+                _,
                 num_elements_with_belief_above_threshold,
             ) = renormalize_beliefs_multiproc(self, normalization_factor)
             return max_elements
@@ -236,11 +236,14 @@ class BeliefSpace:
             self.beliefs[i] > self.belief_threshold for i in range(len(self.beliefs))
         )
 
-    def assert_idxs_have_belief_above_threshold(self, idxs: Sequence[int]) -> None:
+    def check_idxs_have_belief_above_threshold(self, idxs: Sequence[int]) -> None:
         for idx in idxs:
-            assert (
-                self.beliefs[idx] > self.belief_threshold
-            ), f"Item {idx} has belief {self.beliefs[idx]} below threshold {self.belief_threshold}"
+            if self.beliefs[idx] <= self.belief_threshold:
+                logging.warning(
+                    f"Item {idx} has belief {self.beliefs[idx]} below threshold {self.belief_threshold}"
+                )
+                return False
+        return True
 
     def get_idxs_with_belief_above_threshold(self, print_msg=True):
         start_time = time.time()
@@ -397,10 +400,10 @@ class BottomUpChainBeliefSpace(BeliefSpace):
                 unique_id_manager=unique_id_manager,
             )
 
-    def verify_true_chain_idxs_have_belief_above_threshold(self, idxs):
+    def check_true_chain_idxs_have_belief_above_threshold(self, idxs):
         return super(
             BottomUpChainBeliefSpace, self
-        ).assert_idxs_have_belief_above_threshold(idxs)
+        ).check_idxs_have_belief_above_threshold(idxs)
 
     def get_idxs_with_belief_above_threshold(self, print_msg=True):
         start_time = time.time()
