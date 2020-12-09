@@ -1,3 +1,4 @@
+import logging
 import multiprocessing
 import time
 from typing import Sequence
@@ -215,7 +216,7 @@ class BeliefSpace:
             )
 
         self.num_idxs_with_belief_above_threshold = num_idxs_with_belief_above_threshold
-        print(
+        logging.info(
             "{} chains with belief above {}".format(
                 self.num_idxs_with_belief_above_threshold, self.belief_threshold
             )
@@ -249,7 +250,7 @@ class BeliefSpace:
             if self.beliefs[i] > self.belief_threshold
         ]
         if print_msg:
-            print(
+            logging.info(
                 "Getting {} indices with belief above threshold {} took {:0.6f}s".format(
                     len(idxs_above_threshold),
                     self.belief_threshold,
@@ -299,7 +300,7 @@ class BeliefSpace:
         self, threshold=0.0, multiproc=True
     ):
         start_time = time.time()
-        print(
+        logging.info(
             "Setting uniform prior for indices with belief above {}...".format(
                 threshold
             )
@@ -323,7 +324,7 @@ class BeliefSpace:
                 self, threshold
             )
 
-        print(
+        logging.info(
             "Setting uniform belief for indices with belief above {} took {:0.6f}s".format(
                 threshold, time.time() - start_time
             )
@@ -345,7 +346,7 @@ class BeliefSpace:
         :param reset_belief_counts:
         :return:
         """
-        print("Setting uniform belief for all chains.")
+        logging.info("Setting uniform belief for all chains.")
         num_ele = len(self.beliefs)
         self.beliefs = np.full(num_ele, 1 / num_ele)
 
@@ -365,7 +366,7 @@ class TopDownChainBeliefSpace(BeliefSpace):
             TopDownChainBeliefSpace, self
         ).get_idxs_with_belief_above_threshold(print_msg=False)
         if print_msg:
-            print(
+            logging.info(
                 "Getting {} top-down indices with belief above threshold {} took {:0.6f}s".format(
                     len(idxs_above_threshold),
                     self.belief_threshold,
@@ -407,7 +408,7 @@ class BottomUpChainBeliefSpace(BeliefSpace):
             BottomUpChainBeliefSpace, self
         ).get_idxs_with_belief_above_threshold(print_msg=False)
         if print_msg:
-            print(
+            logging.info(
                 "Getting {} bottom-up indices with belief above threshold {} took {:0.6f}s".format(
                     len(idxs_above_threshold),
                     self.belief_threshold,

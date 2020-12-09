@@ -214,7 +214,7 @@ class SubjectWriter:
         """
         # json_results = self.JSONify_subject(logger)
 
-        print("Writing subject data to: {}".format(self.subject_path))
+        logging.info("Writing subject data to: {}".format(self.subject_path))
         subject_summary_filename_base = (
             self.subject_path + "/" + logger.subject_id + "_summary"
         )

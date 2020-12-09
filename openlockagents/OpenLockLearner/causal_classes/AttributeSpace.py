@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import texttable
 from openlockagents.OpenLockLearner.causal_classes.DirichletDistribution import (
@@ -256,7 +258,7 @@ class AttributeScope:
         widths.extend([100 for i in range(len(attribute_order))])
         table.set_cols_width(widths)
 
-        print(table.draw())
+        logging.info(table.draw())
 
 
 class AttributeSpace:
@@ -370,11 +372,11 @@ class AttributeSpace:
             trial_scope.convert_to_list()
 
     def pretty_print_global_attributes(self):
-        print("GLOBAL ATTRIBUTE BELIEFS")
+        logging.info("GLOBAL ATTRIBUTE BELIEFS")
         self.global_attributes.pretty_print()
 
     def pretty_print_local_attributes(self, trial_name):
-        print("LOCAL ATTRIBUTE BELIEFS for {}".format(trial_name))
+        logging.info("LOCAL ATTRIBUTE BELIEFS for {}".format(trial_name))
         self.local_attributes[trial_name].pretty_print()
 
 

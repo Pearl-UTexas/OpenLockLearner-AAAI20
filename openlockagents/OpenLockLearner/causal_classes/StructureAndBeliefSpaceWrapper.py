@@ -1,3 +1,4 @@
+import logging
 import multiprocessing
 import sys
 import time
@@ -220,7 +221,7 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
 
         instantiated_schema_structure_space.schemas = instantiated_schemas
 
-        print(
+        logging.info(
             "Instantiating {0} schemas took {1:.2f}s".format(
                 len(instantiated_schema_structure_space), time.time() - t
             )

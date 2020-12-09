@@ -115,7 +115,9 @@ def main():
     ) = setup_structure_space_paths()
 
     if not os.path.exists(causal_chain_structure_space_path):
-        print("WARNING: no hypothesis space files found, generating hypothesis spaces")
+        logging.warning(
+            "WARNING: no hypothesis space files found, generating hypothesis spaces"
+        )
         generate_causal_structures(max_delay=params.get("max_delay", 0))
 
     interventions_predefined = []
@@ -199,12 +201,12 @@ def main():
             )
 
         agent.print_agent_summary()
-        print(
+        logging.info(
             "Finished agent. Total runtime: {}s".format(time.time() - agent_start_time)
         )
         agent.finish_subject("OpenLockLearner", "OpenLockLearner")
 
-    print(
+    logging.info(
         "Finished all agents for {}. Total runtime: {}s".format(
             param_scenario, time.time() - global_start_time
         )

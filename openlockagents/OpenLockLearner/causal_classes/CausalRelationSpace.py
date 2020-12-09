@@ -1,6 +1,7 @@
 # cython: language_level=3
 
 import itertools
+import logging
 from itertools import product
 from typing import Any, Dict, List, Sequence, Union
 
@@ -135,7 +136,7 @@ class CausalRelationSpace:
                     )
                 counter += 1
 
-        print(
+        logging.info(
             "{}/{} valid causal relations generated".format(
                 len(causal_relations), counter
             )

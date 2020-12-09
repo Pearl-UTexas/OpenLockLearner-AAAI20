@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 import time
 from itertools import chain
@@ -41,7 +42,7 @@ def generate_chain_structure_space(
         attribute_order=env.attribute_order,
         lever_index_mode="position",
     )
-    print(
+    logging.info(
         "Generated {} chains in {}s".format(
             len(causal_chain_structure_space), time.time() - t
         )

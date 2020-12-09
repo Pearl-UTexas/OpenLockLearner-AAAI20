@@ -1,22 +1,29 @@
 import itertools
+import logging
 import time
 
+from openlockagents.OpenLockLearner.generator.chain_generator import (
+    generate_causal_chains_fixed_structure_attributes,
+)
+from openlockagents.OpenLockLearner.io.causal_structure_io import (
+    load_causal_chain_space,
+)
 from openlockagents.OpenLockLearner.learner.ChainPruner import prune_random_subsample
-from openlockagents.OpenLockLearner.generator.chain_generator import generate_causal_chains_fixed_structure_attributes
-from openlockagents.OpenLockLearner.io.causal_structure_io import load_causal_chain_space
-from openlockagents.OpenLockLearner.learner.OpenLockLearnerAgent import OpenLockLearnerAgent
+from openlockagents.OpenLockLearner.learner.OpenLockLearnerAgent import (
+    OpenLockLearnerAgent,
+)
 
 
 def setup_causal_chain_space(
-        env,
-        structure,
-        perceptually_causal_relations,
-        multiproc,
-        data_dir,
-        chain_mode,
-        prune_chain_space,
-        generate,
-        using_ids
+    env,
+    structure,
+    perceptually_causal_relations,
+    multiproc,
+    data_dir,
+    chain_mode,
+    prune_chain_space,
+    generate,
+    using_ids,
 ):
     # generate chains
     if generate:
@@ -46,37 +53,33 @@ def setup_causal_chain_space(
             multiproc=multiproc,
             data_dir=data_dir,
             batch_size=100000,
-            using_ids=using_ids
+            using_ids=using_ids,
         )
 
         # must reload space
-        print("RELOADING CHAINS...")
+        logging.info("RELOADING CHAINS...")
 
     start_time = time.time()
     causal_chain_space = load_causal_chain_space(data_dir, chain_mode)
-    print("Load/generation time: {}s".format(time.time() - start_time))
+    logging.info("Load/generation time: {}s".format(time.time() - start_time))
 
     if prune_chain_space:
-        print("PRUNING RANDOM SUBSAMPLE OF CHAINS")
+        logging.info("PRUNING RANDOM SUBSAMPLE OF CHAINS")
 
         t = time.time()
         causal_chain_space = prune_random_subsample(
             causal_chain_space, subset_size=1000
         )
-        print("Pruning random subsample took {}s".format(time.time() - t))
+        logging.info("Pruning random subsample took {}s".format(time.time() - t))
     return causal_chain_space
 
 
-def create_and_run_agent(
-    env, causal_chain_space, params, use_random_intervention
-):
+def create_and_run_agent(env, causal_chain_space, params, use_random_intervention):
     # setup agent
     agent = OpenLockLearnerAgent(env, causal_chain_space, params)
 
     trial_selected = agent.setup_trial(
-        params["train_scenario_name"],
-        action_limit=2,
-        attempt_limit=100,
+        params["train_scenario_name"], action_limit=2, attempt_limit=100,
     )
 
     # these are used to advance to the next trial after there have no chains pruned for num_steps_with_no_pruning_to_finish_trial steps

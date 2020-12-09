@@ -1,5 +1,6 @@
 import argparse
 import heapq
+import logging
 import multiprocessing
 import os
 from shutil import copytree, ignore_patterns
@@ -221,7 +222,7 @@ PLAUSIBLE_CPT_CHOICES = [
 
 def print_message(trial_count, attempt_count, message, print_message=True):
     if print_message:
-        print("T{}.A{}: ".format(trial_count, attempt_count) + message)
+        logging.info("T{}.A{}: ".format(trial_count, attempt_count) + message)
 
 
 def merge_perceptually_causal_relations_from_dict_of_trials(
@@ -281,6 +282,3 @@ def check_for_duplicates(l):
         seen.add(l[i])
     return False, None
 
-
-if __name__ == "__main__":
-    print("inside of causal_classes.py")

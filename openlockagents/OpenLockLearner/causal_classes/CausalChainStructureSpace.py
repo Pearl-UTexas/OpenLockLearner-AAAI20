@@ -99,12 +99,12 @@ class CausalChainStructureSpace:
                 rejected_chains=rejected_chains,
                 counter=counter,
             )
-            print(
+            logging.info(
                 "{}/{} chains generated. {} valid chains".format(
                     counter, total_num_chains, len(chains)
                 )
             )
-        print(
+        logging.info(
             "{}/{} chains generated. {} valid chains".format(
                 counter, total_num_chains, len(chains)
             )
@@ -477,7 +477,7 @@ class CausalChainStructureSpace:
         :return: nothing
         """
         t = time.time()
-        print("Setting true causal chains...")
+        logging.info("Setting true causal chains...")
         self.true_chains = true_chains
         self.true_chain_idxs = []
         for true_chain in self.true_chains:
@@ -492,7 +492,7 @@ class CausalChainStructureSpace:
             len(self.true_chains) == len(self.true_chain_idxs)
             and None not in self.true_chain_idxs
         ), "Could not find all true chain indices in causal chain space"
-        print(
+        logging.info(
             "Setting true causal chains took {}s. True causal chains: ".format(
                 time.time() - t
             )
@@ -620,7 +620,7 @@ class CausalChainStructureSpace:
         table.add_rows(content)
         table.set_cols_align(alignment)
         table.set_cols_width(widths)
-        print(table.draw())
+        logging.info(table.draw())
 
     def pretty_list_compact_chain(self, causal_chain):
         # argument causal_chain is an index into self.causal_chains
@@ -677,7 +677,7 @@ class CausalChainStructureSpace:
             )
         table.add_rows(content)
         table.set_cols_width([7, 130])
-        print(table.draw())
+        logging.info(table.draw())
 
     def print_chains_above_threshold(self, belief_space, threshold):
         chains = []

@@ -1,3 +1,4 @@
+import logging
 import math
 import operator
 import random
@@ -130,7 +131,6 @@ class ModelBasedRLAgent:
         action_sequence: Sequence[Action],
         change_observed: Sequence[bool],
         first_agent_trial,
-        intervention_idxs_executed=None,
         interventions_executed=None,
         ablation=None,
     ):
@@ -147,7 +147,6 @@ class ModelBasedRLAgent:
         :return: best_action: the optimal action, action_beliefs: the beliefs of each action
         """
         interventions_executed_set = set(interventions_executed)
-        intervention_idxs_executed = np.array(intervention_idxs_executed)
 
         # find causal chains that contain this action sequence
         if len(action_sequence) > 0:
@@ -378,7 +377,7 @@ class ModelBasedRLAgent:
         ] = chain_transition_probabilities
 
         if len(highest_N_final_beliefs) == 0:
-            print("pause")
+            logging.info("pause")
 
         # initial sanity checks
         assert len(highest_N_final_beliefs) != 0, "No final beliefs have belief above 0"
@@ -455,21 +454,21 @@ class ModelBasedRLAgent:
 
         # print the top N
         num_to_print = 10
-        print("Top top-down chains")
+        logging.info("Top top-down chains")
         causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
             highest_N_top_down_belief_idxs[:num_to_print],
             beliefs=zipped_beliefs,
             energies=full_chain_transition_probabilities,
             belief_label="(bottom-up,top-down)",
         )
-        print("Top bottom-up chains")
+        logging.info("Top bottom-up chains")
         causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
             highest_N_bottom_up_belief_idxs[:num_to_print],
             beliefs=zipped_beliefs,
             energies=full_chain_transition_probabilities,
             belief_label="(bottom-up,top-down)",
         )
-        print("Top final belief chains")
+        logging.info("Top final belief chains")
         causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
             highest_N_final_beliefs_idxs[:num_to_print],
             beliefs=zipped_beliefs,

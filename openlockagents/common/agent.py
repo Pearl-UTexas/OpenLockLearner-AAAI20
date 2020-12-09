@@ -1,21 +1,21 @@
-import time
-import texttable
-import sys
-import os
 import atexit
-import jsonpickle
-import random
-import gym
+import logging
+import os
 import pprint
+import random
+import sys
+import time
 
+import gym
+import jsonpickle
 import numpy as np
-from matplotlib import pyplot as plt
 import seaborn as sns
-
-from openlockagents.common.logger_agent import SubjectLogger, SubjectWriter
-from openlock.settings_trial import get_possible_trials
+import texttable
+from matplotlib import pyplot as plt
 from openlock.envs.openlock_env import ObservationSpace
+from openlock.settings_trial import get_possible_trials
 from openlockagents.common.common import ROOT_DIR
+from openlockagents.common.logger_agent import SubjectLogger, SubjectWriter
 from openlockagents.OpenLockLearner.util.common import write_source_code
 
 
@@ -93,9 +93,6 @@ class Agent(object):
         :param random_seed: default: None
         :return: Nothing
         """
-        assert (
-            project_src is not None
-        ), "Must specify a root directory for project source code"
         self.human = human
         self.writer = SubjectWriter(self.data_path)
         self.subject_id = self.writer.subject_id
@@ -103,7 +100,7 @@ class Agent(object):
         # redirect stdout to logger
         sys.stdout = self.writer.terminal_writer
 
-        print(
+        logging.info(
             "Starting trials for subject {}. Saving to {}".format(
                 self.subject_id, self.writer.subject_path
             )
@@ -118,12 +115,6 @@ class Agent(object):
             major=major,
             start_time=time.time(),
             random_seed=random_seed,
-        )
-
-        # copy the entire code base; this is unnecessary but prevents worrying about a particular
-        # source code version when trying to reproduce exact parameters
-        write_source_code(
-            project_src, self.writer.subject_path + "/src/",
         )
 
     # code to run before human and computer trials
@@ -190,7 +181,7 @@ class Agent(object):
             agent = self
 
         if agent.finished:
-            print("Already finished agent, cannot finish again...")
+            logging.warning("Already finished agent, cannot finish again...")
             return
 
         agent.logger.finish(time.time())
@@ -297,11 +288,11 @@ class Agent(object):
         content.extend(results[1 : len(results)])
         table.add_rows(content)
         table.set_cols_width([12 for i in range(len(col_labels))])
-        print(table.draw())
+        logging.info(table.draw())
 
     @staticmethod
     def pre_instantiation_setup(params, bypass_confirmation=False):
-        print("PARAMETERS:")
+        logging.info("PARAMETERS:")
         pp = pprint.PrettyPrinter(indent=2)
         pp.pprint(params)
 
@@ -368,7 +359,7 @@ class Agent(object):
         :param epsilon:
         :return: Nothing
         """
-        print(
+        logging.info(
             "ID: {}, iter {}, trial {}, scenario {}, episode: {}/{}, attempt_reward {}, trial_reward {}, e: {:.2}".format(
                 self.subject_id,
                 iter_num,
@@ -399,11 +390,11 @@ class Agent(object):
             assert sim_state == fsm_state
             assert sim_labels == fsm_labels
         except AssertionError:
-            print("FSM does not match simulator data")
-            print(sim_state)
-            print(fsm_state)
-            print(sim_labels)
-            print(fsm_labels)
+            logging.error("FSM does not match simulator data")
+            logging.error(sim_state)
+            logging.error(fsm_state)
+            logging.error(sim_labels)
+            logging.error(fsm_labels)
         return obs_space
 
     def plot_reward(self, reward, epoch):

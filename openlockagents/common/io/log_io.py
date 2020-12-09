@@ -1,21 +1,15 @@
 import glob
-import os
 import json
+import logging
+import os
+import pickle
 import pickle as pkl
 import re
 
 import h5py
 import jsonpickle
-import pickle
-
-
-from openlock.settings_trial import (
-    NUM_LEVERS_IN_HUMAN_DATA,
-)
-
-from openlockagents.Human.common import (
-    load_human_config_json
-)
+from openlock.settings_trial import NUM_LEVERS_IN_HUMAN_DATA
+from openlockagents.Human.common import load_human_config_json
 
 
 # this is a terrible way to do this! Just load the JSON, but this example is how you would load the matlab file, if
@@ -23,11 +17,13 @@ from openlockagents.Human.common import (
 def load_human_data_from_mat(data_dir):
     for mat_filename in glob.glob(data_dir + "/*.mat"):
         with h5py.File(mat_filename, "r") as mat_file:
-            print(mat_file.keys())
-            print(mat_file["subject_summary"]["age"])
+            logging.info(mat_file.keys())
+            logging.info(mat_file["subject_summary"]["age"])
 
 
-def load_subjects_from_dir(data_dir, ext="json", participant_id_corrections=None,  convert_to_position=False):
+def load_subjects_from_dir(
+    data_dir, ext="json", participant_id_corrections=None, convert_to_position=False
+):
     """
 
     :param data_dir: directory to load from
@@ -45,18 +41,25 @@ def load_subjects_from_dir(data_dir, ext="json", participant_id_corrections=None
 
         subject_summary = load_subject_data(subject_dir, ext, convert_to_position)
 
-        if participant_id_corrections is not None and subject_summary.subject_id in participant_id_corrections.keys():
-            subject_summary.participant_id = participant_id_corrections[subject_summary.subject_id]
+        if (
+            participant_id_corrections is not None
+            and subject_summary.subject_id in participant_id_corrections.keys()
+        ):
+            subject_summary.participant_id = participant_id_corrections[
+                subject_summary.subject_id
+            ]
 
         subjects.append(subject_summary)
 
         if i % print_update_rate == 0:
-            print("{}/{} subjects added".format(i, len(subject_dirs)))
+            logging.info("{}/{} subjects added".format(i, len(subject_dirs)))
 
     return subjects
 
 
-def load_subject_data(subject_dir, ext, convert_to_position=False, use_json_pickle_for_trial=True):
+def load_subject_data(
+    subject_dir, ext, convert_to_position=False, use_json_pickle_for_trial=True
+):
     """
 
     :param subject_dir:
@@ -99,13 +102,21 @@ def load_subject_data(subject_dir, ext, convert_to_position=False, use_json_pick
     subject_trial_dirs = list(filter(trial_regex.match, subject_trial_dirs))
 
     # order trials
-    regex = re.compile('[^0-9]')
+    regex = re.compile("[^0-9]")
     subject_trial_dirs.sort(key=lambda x: int(regex.sub("", x)))
 
     # load trials
     for subject_trial_dir in subject_trial_dirs:
-        subject_trial_filename = subject_trial_dir + "/" + subject_trial_dir + "_summary." + ext
-        trial = load_trial_from_file(subject_dir, subject_trial_filename, ext, convert_to_position, use_json_pickle_for_trial)
+        subject_trial_filename = (
+            subject_trial_dir + "/" + subject_trial_dir + "_summary." + ext
+        )
+        trial = load_trial_from_file(
+            subject_dir,
+            subject_trial_filename,
+            ext,
+            convert_to_position,
+            use_json_pickle_for_trial,
+        )
         subject_summary.trial_seq.append(trial)
 
     return subject_summary
@@ -154,7 +165,13 @@ def load_agent(subject_dir, agent_filename, ext):
         raise ValueError("Unknown subject_summary file extension. Must be json or pkl.")
 
 
-def load_trial_from_file(subject_dir, subject_trial_filename, ext, convert_to_position=False, use_json_pickle_for_trial=True):
+def load_trial_from_file(
+    subject_dir,
+    subject_trial_filename,
+    ext,
+    convert_to_position=False,
+    use_json_pickle_for_trial=True,
+):
     """
     loads a single trial from a file
     :param subject_dir: root directory of subject data
@@ -165,7 +182,9 @@ def load_trial_from_file(subject_dir, subject_trial_filename, ext, convert_to_po
     :return: trial object
     """
     if ext == "json":
-        trial = load_trial_from_file_json(subject_dir, subject_trial_filename, use_json_pickle_for_trial)
+        trial = load_trial_from_file_json(
+            subject_dir, subject_trial_filename, use_json_pickle_for_trial
+        )
         # convert lever roles to positions
         if convert_to_position and use_json_pickle_for_trial:
             trial = convert_trial_lever_roles_to_position(trial)
@@ -180,7 +199,9 @@ def load_trial_from_file(subject_dir, subject_trial_filename, ext, convert_to_po
         raise ValueError("Unknown trial file extension. Must be json or pkl.")
 
 
-def load_trial_from_file_json(subject_dir, subject_trial_filename, use_json_pickle_for_trial=True):
+def load_trial_from_file_json(
+    subject_dir, subject_trial_filename, use_json_pickle_for_trial=True
+):
     if use_json_pickle_for_trial:
         trial = load_file_json_pickle(subject_dir, subject_trial_filename)
     else:

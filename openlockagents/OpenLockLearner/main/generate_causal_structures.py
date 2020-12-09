@@ -1,3 +1,4 @@
+import fire
 from openlockagents.common.agent import Agent
 from openlockagents.OpenLockLearner.causal_classes.hypothesis_space import (
     generate_hypothesis_space,
@@ -9,10 +10,6 @@ from openlockagents.OpenLockLearner.util.common import (
     FLUENTS,
     setup_structure_space_paths,
 )
-
-
-def main():
-    generate_causal_structures()
 
 
 def generate_causal_structures(max_delay: int = 0):
@@ -49,4 +46,4 @@ def generate_causal_structures(max_delay: int = 0):
 
 
 if __name__ == "__main__":
-    main()
+    fire.Fire(generate_causal_structures)

@@ -1,13 +1,17 @@
+import logging
 import time
 
-from openlockagents.OpenLockLearner.causal_classes.SchemaStructureSpace import \
-    AbstractSchemaStructureSpace
-from openlockagents.OpenLockLearner.generator.chain_generator import \
-    generate_chain_structure_space
+from openlockagents.OpenLockLearner.causal_classes.SchemaStructureSpace import (
+    AbstractSchemaStructureSpace,
+)
+from openlockagents.OpenLockLearner.generator.chain_generator import (
+    generate_chain_structure_space,
+)
 from openlockagents.OpenLockLearner.io.causal_structure_io import (
-    write_causal_structure_space, write_schema_structure_space)
-from openlockagents.OpenLockLearner.util.common import (ACTIONS, FLUENT_STATES,
-                                                        FLUENTS)
+    write_causal_structure_space,
+    write_schema_structure_space,
+)
+from openlockagents.OpenLockLearner.util.common import ACTIONS, FLUENT_STATES, FLUENTS
 
 
 def generate_hypothesis_space(
@@ -39,7 +43,7 @@ def generate_hypothesis_space(
         causal_chain_structure_space_path=causal_chain_structure_space_path,
     )
 
-    print(
+    logging.info(
         "Chains saved to {}. Chain generation time: {}s".format(
             causal_chain_structure_space_path, time.time() - t
         )
@@ -55,7 +59,7 @@ def generate_hypothesis_space(
         schema_structure_space_path=two_solution_schemas_structure_space_path,
     )
 
-    print(
+    logging.info(
         "Two solution schemas saved to {}. Schema generation time: {}s".format(
             two_solution_schemas_structure_space_path, time.time() - t
         )
@@ -70,7 +74,7 @@ def generate_hypothesis_space(
         schema_structure_space_path=three_solution_schemas_structure_space_path,
     )
 
-    print(
+    logging.info(
         "Three solution schemas saved to {}. Schema generation time: {}s".format(
             three_solution_schemas_structure_space_path, time.time() - t
         )

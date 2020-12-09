@@ -3,7 +3,7 @@ import logging
 import math
 import random
 import time
-from typing import List, Tuple, Union
+from typing import List, Sequence, Tuple, Union
 
 import numpy as np
 import texttable  # type: ignore
@@ -265,7 +265,6 @@ class OpenLockLearnerAgent(Agent):
             self.run_trial_openlock_learner_action_intervention(
                 trial_selected,
                 max_steps_with_no_pruning,
-                interventions_predefined=interventions_predefined,
                 chain_idxs_pruned_from_initial_observation=chain_idxs_pruned_from_initial_observation,
             )
         else:
@@ -277,8 +276,6 @@ class OpenLockLearnerAgent(Agent):
         self,
         trial_selected,
         max_steps_with_no_pruning,
-        interventions_predefined=None,
-        use_random_intervention=False,
         chain_idxs_pruned_from_initial_observation=None,
     ):
         self.trial_order.append(trial_selected)
@@ -291,7 +288,6 @@ class OpenLockLearnerAgent(Agent):
             if chain_idxs_pruned_from_initial_observation is not None
             else set()
         )
-        intervention_idxs_executed_this_trial = set()
 
         while not trial_finished:
             start_time = time.time()
@@ -336,9 +332,6 @@ class OpenLockLearnerAgent(Agent):
                         timestep=timestep,
                         action_sequence=action_sequence,
                         change_observed=change_observed,
-                        intervention_idxs_executed=self.intervention_chain_idxs_per_attempt[
-                            self.current_trial_name
-                        ],
                         interventions_executed=self.interventions_per_attempt[
                             self.current_trial_name
                         ],
@@ -376,22 +369,6 @@ class OpenLockLearnerAgent(Agent):
                 )
                 timestep += 1
                 attempt_reward += reward
-
-                # create observations from outcome
-                causal_observations = self.causal_learner.create_causal_observation(
-                    self.env,
-                    action,
-                    state_cur,
-                    state_prev,
-                    causal_observations,
-                    self.trial_count,
-                    self.attempt_count,
-                )
-
-                if len(causal_observations) > 0:
-                    self.causal_chain_space.structure_space.pretty_print_causal_observations(
-                        [causal_observations[-1]], print_messages=self.print_messages
-                    )
 
                 # update causal models
                 (
@@ -432,28 +409,10 @@ class OpenLockLearnerAgent(Agent):
             # convert to tuple for hashability
             action_sequence = tuple(action_sequence)
 
-            # Get the one causal chain associated with this specific sequence of actions
-            # So we never do exactly this again
-            intervention_chain_idxs = set(
-                self.causal_chain_space.structure_space.find_causal_chain_idxs_with_actions(
-                    action_sequence, [True] * len(action_sequence)
-                )
-            )
-            # check to make sure the intervention indices executed this attempt are not in the set we have already executed
-            assert not intervention_chain_idxs.intersection(
-                intervention_idxs_executed_this_trial
-            ), "Executing same intervention twice"
-            intervention_chain_idxs = list(intervention_chain_idxs)
-
             # decay epsilon
             if self.epsilon_active:
                 self.epsilon = self.epsilon * self.epsilon_decay
 
-            intervention_idxs_executed_this_trial.update(intervention_chain_idxs)
-
-            self.intervention_chain_idxs_per_attempt[self.current_trial_name].append(
-                intervention_chain_idxs
-            )
             self.interventions_per_attempt[self.current_trial_name].append(
                 action_sequence
             )
@@ -465,20 +424,15 @@ class OpenLockLearnerAgent(Agent):
 
             # finish the attempt in the environment
             self.finish_attempt()
-
-            if self.print_messages:
-                print("CAUSAL OBSERVATION:")
-                self.causal_chain_space.structure_space.pretty_print_causal_observations(
-                    causal_observations, print_messages=self.print_messages
-                )
+            logging.info("Attempt finished.")
 
             num_solutions_remaining = self.env.get_num_solutions_remaining()
             # solution found, instantiate schemas
             if prev_num_solutions_remaining != num_solutions_remaining:
                 self.instantiate_schemas(
                     num_solutions_in_trial=self.env.get_num_solutions(),
-                    causal_observations=causal_observations,
                     solution_action_sequence=action_sequence,
+                    solution_change_observed=change_observed,
                     completed_solution_idxs=completed_solution_idxs,
                     excluded_chain_idxs=chain_idxs_pruned_this_trial,
                     num_solutions_remaining=num_solutions_remaining,
@@ -644,7 +598,7 @@ class OpenLockLearnerAgent(Agent):
             self.finish_attempt()
 
             if self.print_messages:
-                print("CAUSAL OBSERVATION:")
+                logging.info("CAUSAL OBSERVATION:")
                 self.causal_chain_space.structure_space.pretty_print_causal_observations(
                     causal_observations, print_messages=self.print_messages
                 )
@@ -845,11 +799,25 @@ class OpenLockLearnerAgent(Agent):
         self.atomic_schema_space.update_atomic_schema_beliefs(truncated_solutions)
 
     def process_solution(
-        self, causal_observations, completed_solution_idxs, solution_action_sequence
+        self,
+        completed_solution_idxs: Sequence[int],
+        solution_action_sequence: Sequence[Action],
+        solution_change_observed: Sequence[bool],
     ):
-        # construct solution chain from outcome and intervention
-        # the intervention we executed is not necessarily the same index as the causal chain observed - multiple causal chains could have the same action sequence
-        solution_chain = tuple([x.causal_relation for x in causal_observations])
+        solution_chains = self.causal_chain_space.structure_space.find_causal_chain_idxs_with_actions(
+            solution_action_sequence, solution_change_observed
+        )
+        # I'm just going to assume that you find the correct action sequence. In reality this
+        # requires testing one additional chain where you specifically pick the next action that
+        # caused a chain from this sequence until it works to identify exactly what the delays are,
+        # but I'm fine not modelling that explicitly.
+        # For example, let's say you take actions 1 2 3 4 5 in order, and then actions 1 3 and 5
+        # caused a change, where actions 2 and 4 didn't. You can disambiguate the chain by taking
+        # action 1, then taking action 3 until it works, then taking action 5 until it works. The
+        # first time it works, we know exactly what the delay is.
+        solution_chain = set(solution_chains).intersection(
+            self.causal_chain_space.structure_space.true_chains
+        )[0]
         true_chain_idx = self.causal_chain_space.structure_space.true_chains.index(
             solution_chain
         )
@@ -866,9 +834,9 @@ class OpenLockLearnerAgent(Agent):
     def instantiate_schemas(
         self,
         num_solutions_in_trial,
-        causal_observations,
         completed_solution_idxs,
         solution_action_sequence,
+        solution_change_observed,
         excluded_chain_idxs,
         num_solutions_remaining,
         multiproc=True,
@@ -876,9 +844,9 @@ class OpenLockLearnerAgent(Agent):
         if num_solutions_remaining <= 0:
             return
         completed_solution_idxs = self.process_solution(
-            causal_observations=causal_observations,
             completed_solution_idxs=completed_solution_idxs,
             solution_action_sequence=solution_action_sequence,
+            solution_change_observed=solution_change_observed,
         )
 
         # TODO(mjedmonds): make every else multiproc compliant - currently there are bugs if other functions are multiprocessed
@@ -1214,7 +1182,7 @@ class OpenLockLearnerAgent(Agent):
                     intervention_idxs_executed_this_trial
                 ), "Executing same intervention twice"
             except AssertionError:
-                print("problem")
+                logging.error("problem")
                 raise AssertionError("Executing the same intervention twice")
 
     def determine_first_trial(self):
@@ -1245,7 +1213,7 @@ class OpenLockLearnerAgent(Agent):
         map_chains,
     ):
         if DEBUGGING:
-            print(self.env.cur_trial.attempt_seq[-1].action_seq)
+            logging.debug(self.env.cur_trial.attempt_seq[-1].action_seq)
 
         self.plot_reward(attempt_reward, self.total_attempt_count)
         print_message(
@@ -1348,23 +1316,23 @@ class OpenLockLearnerAgent(Agent):
 
         table.set_cols_width(widths)
 
-        print(table.draw())
+        logging.info(table.draw())
 
     def print_agent_summary(self):
         for trial_name in self.trial_order:
             self.causal_chain_space.bottom_up_belief_space.attribute_space.pretty_print_local_attributes(
                 trial_name
             )
-        print("TWO SOLUTION SCHEMA SPACE:")
+        logging.info("TWO SOLUTION SCHEMA SPACE:")
         self.two_solution_abstract_schema_space.structure_space.pretty_print(
             self.two_solution_abstract_schema_space.belief_space
         )
-        print("THREE SOLUTION SCHEMA SPACE:")
+        logging.info("THREE SOLUTION SCHEMA SPACE:")
         self.three_solution_abstract_schema_space.structure_space.pretty_print(
             self.three_solution_abstract_schema_space.belief_space
         )
 
-        print("NUMBER OF ATTEMPTS PER TRIAL:")
+        logging.info("NUMBER OF ATTEMPTS PER TRIAL:")
         self.print_num_attempts_per_trial()
 
     def print_complete_exploration_message(

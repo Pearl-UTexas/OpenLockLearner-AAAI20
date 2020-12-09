@@ -1,11 +1,12 @@
+import json
 import os
 import sys
-import json
 
 # project root dir, three directories up
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-DEBUGGING = True if "pydevd" in sys.modules else False
+# DEBUGGING = True if "pydevd" in sys.modules else False
+DEBUGGING = False
 
 
 def load_json_config(path):

@@ -1,4 +1,5 @@
 import copy
+import logging
 import pickle as pkl
 import time
 from collections import OrderedDict, defaultdict, namedtuple
@@ -239,7 +240,7 @@ class AtomicSchemaStructureSpace(SchemaStructureSpace):
 
         table.set_cols_width(widths)
 
-        print(table.draw())
+        logging.info(table.draw())
 
 
 class AbstractSchemaStructureSpace(SchemaStructureSpace):
@@ -467,7 +468,7 @@ class AbstractSchemaStructureSpace(SchemaStructureSpace):
 
         table.set_cols_width(widths)
 
-        print(table.draw())
+        logging.info(table.draw())
 
     # @staticmethod
     # def check_for_postcondition_constraints(schema, node):

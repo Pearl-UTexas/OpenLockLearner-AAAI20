@@ -1,12 +1,16 @@
 import itertools
+import logging
 import os
 import re
 import sys
 
 import more_itertools
 import networkx as nx
-
-from openlockagents.OpenLockLearner.util.common import create_birdirectional_dict, ACTION_REGEX_STR, STATE_REGEX_STR
+from openlockagents.OpenLockLearner.util.common import (
+    ACTION_REGEX_STR,
+    STATE_REGEX_STR,
+    create_birdirectional_dict,
+)
 
 NO_CONSTRAINT = -1
 UNASSIGNED_CHAIN = -1
@@ -39,9 +43,10 @@ class SchemaNodeID:
             return False
         return self.value == other.value
 
-CC_EDGES = ((SchemaNodeID(0),SchemaNodeID(1)), (SchemaNodeID(0),SchemaNodeID(2)))
-CE_EDGES = ((SchemaNodeID(1),SchemaNodeID(0)), (SchemaNodeID(2),SchemaNodeID(0)))
-CH_EDGES = ((SchemaNodeID(0),SchemaNodeID(1)), (SchemaNodeID(1),SchemaNodeID(2)))
+
+CC_EDGES = ((SchemaNodeID(0), SchemaNodeID(1)), (SchemaNodeID(0), SchemaNodeID(2)))
+CE_EDGES = ((SchemaNodeID(1), SchemaNodeID(0)), (SchemaNodeID(2), SchemaNodeID(0)))
+CH_EDGES = ((SchemaNodeID(0), SchemaNodeID(1)), (SchemaNodeID(1), SchemaNodeID(2)))
 
 
 def generate_atomic_schema_graphs():
@@ -74,7 +79,6 @@ def generate_instantiation_mappings(n_chains_in_schema, solutions_executed):
     mappings = list(set(mappings))
 
     return mappings
-
 
 
 def generate_schemas(structure, n_paths, draw_chains=False):
@@ -133,7 +137,7 @@ def generate_schemas(structure, n_paths, draw_chains=False):
     for chains in possible_chains_with_npaths:
         counter += 1
         if counter % print_update_rate == 0:
-            print(
+            logging.info(
                 "Generated {}/{} schema_chains with {} chains and {} nodes".format(
                     counter,
                     len(possible_chains_with_npaths),
@@ -208,7 +212,10 @@ def generate_schemas(structure, n_paths, draw_chains=False):
         chain = tuple(schema_chains[i])
         # if chain1 is not in out schema set and it is not isomorphic to any chain in our schema set, add the chain to our schema set
         if chain not in final_schema_chains and all(
-            [not nx.is_isomorphic(graph, final_graph) for final_graph in final_schema_graphs]
+            [
+                not nx.is_isomorphic(graph, final_graph)
+                for final_graph in final_schema_graphs
+            ]
         ):
             final_schema_chains.add(chain)
             final_schema_graphs.add(graph)
@@ -222,7 +229,7 @@ def generate_schemas(structure, n_paths, draw_chains=False):
             n_paths,
         )
 
-    print(
+    logging.info(
         "Generated {}/{} schema_chains with {} chains and {} nodes".format(
             len(possible_chains_with_npaths),
             len(possible_chains_with_npaths),
