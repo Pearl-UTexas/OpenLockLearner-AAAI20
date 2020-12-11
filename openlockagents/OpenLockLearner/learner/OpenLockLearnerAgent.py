@@ -424,7 +424,6 @@ class OpenLockLearnerAgent(Agent):
 
             # finish the attempt in the environment
             self.finish_attempt()
-            logging.info("Attempt finished.")
 
             num_solutions_remaining = self.env.get_num_solutions_remaining()
             # solution found, instantiate schemas
