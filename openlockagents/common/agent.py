@@ -1,21 +1,20 @@
-import time
-import texttable
-import sys
-import os
 import atexit
-import jsonpickle
-import random
-import gym
+import os
 import pprint
+import random
+import sys
+import time
 
+import gym
+import jsonpickle
 import numpy as np
-from matplotlib import pyplot as plt
 import seaborn as sns
-
-from openlockagents.common.logger_agent import SubjectLogger, SubjectWriter
-from openlock.settings_trial import get_possible_trials
+import texttable
+from matplotlib import pyplot as plt
 from openlock.envs.openlock_env import ObservationSpace
+from openlock.settings_trial import get_possible_trials
 from openlockagents.common.common import ROOT_DIR
+from openlockagents.common.logger_agent import SubjectLogger, SubjectWriter
 from openlockagents.OpenLockLearner.util.common import write_source_code
 
 
@@ -93,9 +92,6 @@ class Agent(object):
         :param random_seed: default: None
         :return: Nothing
         """
-        assert (
-            project_src is not None
-        ), "Must specify a root directory for project source code"
         self.human = human
         self.writer = SubjectWriter(self.data_path)
         self.subject_id = self.writer.subject_id
@@ -118,12 +114,6 @@ class Agent(object):
             major=major,
             start_time=time.time(),
             random_seed=random_seed,
-        )
-
-        # copy the entire code base; this is unnecessary but prevents worrying about a particular
-        # source code version when trying to reproduce exact parameters
-        write_source_code(
-            project_src, self.writer.subject_path + "/src/",
         )
 
     # code to run before human and computer trials
