@@ -217,7 +217,8 @@ class ChainPruner:
             )
             if len(true_chain_idxs_removed) > 0:
                 true_chains_removed = [
-                    causal_chain_space.causal_chains[i] for i in true_chain_idxs_removed
+                    causal_chain_space.structure_space.causal_chains[i]
+                    for i in true_chain_idxs_removed
                 ]
                 logging.error(
                     f"True chains with idx={true_chain_idxs_removed}, chain={true_chains_removed} "
