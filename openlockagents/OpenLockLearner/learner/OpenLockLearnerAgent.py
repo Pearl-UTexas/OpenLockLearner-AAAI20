@@ -298,7 +298,6 @@ class OpenLockLearnerAgent(Agent):
             intervention_info_gain = 0
             num_chains_pruned_this_attempt = 0
 
-            causal_observations = []
             action_sequence: List[int] = list()
             change_observed: List[bool] = list()
             action_beliefs_this_attempt = []
@@ -354,8 +353,6 @@ class OpenLockLearnerAgent(Agent):
 
                 # execute action
                 reward, state_prev, state_cur = self.execute_action_intervention(action)
-                # TODO(joschnei): This is bugged, seems to be essentially random when its true or false.
-                # It definitely can be both.
                 logging.debug(f"state_cur={state_cur}, state_prev={state_prev}")
                 change_observed.append(state_cur != state_prev)
                 logging.debug(f"change_observed={change_observed[-1]}")
@@ -470,6 +467,9 @@ class OpenLockLearnerAgent(Agent):
                     ),
                     self.print_messages,
                 )
+                trial_finished = True
+
+            if self.env.attempt_count > self.env.attempt_limit:
                 trial_finished = True
 
         self.finish_trial(trial_selected, test_trial=False)

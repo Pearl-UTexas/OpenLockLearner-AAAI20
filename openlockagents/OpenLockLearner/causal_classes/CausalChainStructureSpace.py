@@ -4,7 +4,7 @@ import random
 import time
 from collections import defaultdict
 from operator import itemgetter
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import jsonpickle  # type: ignore
 import numpy as np
@@ -13,11 +13,10 @@ from numpy.lib.index_tricks import fill_diagonal
 from openlock.common import Action
 from openlock.logger_env import ActionLog
 from openlockagents.common.io.log_io import pretty_write
-from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelation
-from openlockagents.OpenLockLearner.util.common import (
-    ALL_CAUSAL_CHAINS,
-    check_for_duplicates,
-)
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import \
+    CausalRelation
+from openlockagents.OpenLockLearner.util.common import (ALL_CAUSAL_CHAINS,
+                                                        check_for_duplicates)
 
 
 class CausalChainStructureSpace:
@@ -30,6 +29,8 @@ class CausalChainStructureSpace:
         attribute_order,
         lever_index_mode,
         print_messages=True,
+        trie: bool = False,
+        max_delay: int = 1,
     ):
         self.causal_relation_space = copy.deepcopy(causal_relation_space)
         self.chain_length = chain_length
@@ -64,6 +65,36 @@ class CausalChainStructureSpace:
         self.subchain_indexed_causal_relation_to_chain_index_map = self.construct_chain_indices_by_subchain_index(
             self.causal_chains, self.chain_length
         )
+
+        if trie:
+            self.max_delay = max_delay
+            self.trie = self._make_trie()
+
+    def _make_trie(self) -> Dict:
+        # Dict key consists of an action and how many unused actions after it
+        Key = Tuple[Action, int]
+        # Dict values consists of the next layer of the Trie and the indexes of the causal chains
+        # consistent up to this point
+        Value = Tuple[Dict[Key, Any], Sequence[int]]
+        trie: Dict[Key, Value] = {}
+        for idx, chain in enumerate(self.causal_chains):
+            parents = [trie]
+            children = []
+            for subchain in chain:
+                # We don't have the true delay, we just have the number of actions that don't work
+                # So we want a mapping that uses the observed delay to include chains which have
+                # shorter delays. This means that we add each chain along all paths through the
+                # trie with delays at least as large as the one in this chain.
+                for delay in range(subchain.delay, self.max_delay + 1):
+                    key: Key = (subchain.action, delay)
+                    for parent in parents:
+                        child, indexes = parent.get(key, ({}, []))
+                        indexes.append(idx)
+                        children.append(child)
+                        parent[key] = (child, indexes)
+                parents = children
+                children = []
+        return trie
 
     def construct_chain_indices_by_subchain_index(self, chains, num_subchains):
         chain_indices_by_subchain_index = [
@@ -270,12 +301,17 @@ class CausalChainStructureSpace:
         change_observed: Sequence[bool],
         legacy: bool = False,
     ) -> List[int]:
-        assert len(actions) == len(change_observed)
+        assert len(actions) == len(
+            change_observed
+        ), f"action and change lengths don't match {len(actions)} vs {len(change_observed)}"
 
         logging.debug(f"actions={actions}, change_observed={change_observed}")
 
         if legacy:
             return self.legacy_chain_search(actions, change_observed)
+
+        if getattr(self, "trie", None) is not None:
+            return self.get_chains_from_actions(actions, change_observed)
 
         inclusion_constraints: List[Dict[str, Union[Any, List[Any]]]] = []
         max_delay = 0
@@ -284,7 +320,6 @@ class CausalChainStructureSpace:
             if not change:
                 max_delay += 1
                 continue
-
             if last_good_action is not None:
                 new_constraint = {
                     "action": last_good_action,
@@ -301,6 +336,38 @@ class CausalChainStructureSpace:
             inclusion_constraints.append({"action": last_good_action})
 
         return self.find_all_causal_chains_satisfying_constraints(inclusion_constraints)
+
+    def _make_causal_events(
+        self, actions: Sequence[Action], change_observed: Sequence[bool]
+    ) -> Sequence[Tuple[Action, int]]:
+        assert len(actions) == len(change_observed)
+        events: Sequence[Tuple[Action, int]] = []
+        noops = 0
+        last_good_action = None
+        for action, change in zip(actions, change_observed):
+            if not change:
+                noops += 1
+            else:
+                if last_good_action is not None:
+                    events.append((last_good_action, noops))
+                    noops = 0
+                last_good_action = action
+        if last_good_action is not None:
+            events.append((last_good_action, self.max_delay))
+        return events
+
+    def get_chains_from_actions(
+        self, actions: Sequence[Action], change_observed: Sequence[bool]
+    ) -> List[int]:
+        assert len(actions) == len(change_observed)
+        causal_events = self._make_causal_events(actions, change_observed)
+        if len(causal_events) > 0:
+            node = self.trie
+            for event in causal_events:
+                node, indexes = node[event]
+        else:
+            indexes = list(range(len(self.causal_chains)))
+        return indexes
 
     def find_all_causal_chains_satisfying_constraints(
         self,

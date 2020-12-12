@@ -12,3 +12,6 @@ assets
 launch.json
 settings.json
 **/data/**
+*.log
+logs/*
+log.txt

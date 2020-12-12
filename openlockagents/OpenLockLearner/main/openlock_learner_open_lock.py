@@ -44,7 +44,11 @@ def main():
 
     args = parse_arguments()
 
-    logging.basicConfig(level=args.verbosity)
+    logging.basicConfig(
+        level=args.verbosity,
+        format="%(asctime)s:%(filename)s:%(lineno)d:%(levelname)s %(message)s",
+    )
+    logging.info(args)
 
     ablation_params = AblationParams()
 
@@ -74,12 +78,12 @@ def main():
 
     params = PARAMS[param_scenario]
     params["data_dir"] = data_dir
-    params["train_attempt_limit"] = 30
-    params["test_attempt_limit"] = 30
+    params["train_attempt_limit"] = args.train_attempt_limit
+    params["test_attempt_limit"] = args.test_attempt_limit
     # run to the full attempt limit, regardless of whether or not all solutions were found
     params["full_attempt_limit"] = False
-    params["intervention_sample_size"] = 10
-    params["chain_sample_size"] = 1000
+    params["intervention_sample_size"] = 10  # doesn't matter
+    params["chain_sample_size"] = 1000  # doesn't matter
     params["use_physics"] = False
 
     # openlock learner params
@@ -100,9 +104,11 @@ def main():
     params["using_ids"] = False
     params["multiproc"] = False
     params["deterministic"] = False
-    params["num_agent_runs"] = 40
+    params["num_agent_runs"] = args.n_replications
     params["src_dir"] = None
     params["print_messages"] = False
+
+    logging.info(params)
 
     logging.info("Pre-instantiation setup")
     env = Agent.pre_instantiation_setup(params, bypass_confirmation)
@@ -115,13 +121,10 @@ def main():
     ) = setup_structure_space_paths()
 
     if not os.path.exists(causal_chain_structure_space_path):
-        logging.warning(
-            "WARNING: no hypothesis space files found, generating hypothesis spaces"
-        )
+        logging.warning("No hypothesis space files found, generating hypothesis spaces")
         generate_causal_structures(max_delay=params.get("max_delay", 0))
 
     interventions_predefined = []
-    # interventions_predefined = [("push_LOWERLEFT", "push_UPPERRIGHT", "push_door")]
 
     # these are used to advance to the next trial after there have no chains pruned for num_steps_with_no_pruning_to_finish_trial steps
     num_steps_with_no_pruning_to_finish_trial = 500
@@ -140,6 +143,7 @@ def main():
 
     logging.info("Starting trials")
     for i in range(num_agent_runs):
+        logging.info(f"Starting agent run {i} of {num_agent_runs}")
         agent_start_time = time.time()
 
         env = Agent.make_env(params)
@@ -153,7 +157,7 @@ def main():
             **{
                 "two_solution_schemas": two_solution_schemas,
                 "three_solution_schemas": three_solution_schemas,
-            }
+            },
         )
 
         possible_trials = agent.get_random_order_of_possible_trials(
@@ -161,7 +165,7 @@ def main():
         )
 
         agent.training_trial_order = possible_trials
-        # training
+        logging.info("Training agent")
         for trial_name in possible_trials:
             (
                 trial_selected,
@@ -183,6 +187,7 @@ def main():
 
         # testing
         if params["test_scenario_name"] in ("CE4, CC4, CE4D, CC4D"):
+            logging.info("Testing agent")
             (
                 trial_selected,
                 chain_idxs_pruned_from_initial_observation,

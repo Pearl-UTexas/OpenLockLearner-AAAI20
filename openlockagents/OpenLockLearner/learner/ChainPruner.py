@@ -1,3 +1,4 @@
+import logging
 import multiprocessing
 from typing import Sequence, Tuple
 
@@ -6,6 +7,9 @@ from openlock.common import Action
 from openlockagents.common.common import DEBUGGING
 from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import (
     CausalChainStructureSpace,
+)
+from openlockagents.OpenLockLearner.causal_classes.StructureAndBeliefSpaceWrapper import (
+    TopDownBottomUpStructureAndBeliefSpaceWrapper,
 )
 from openlockagents.OpenLockLearner.perceptual_causality_python.perceptual_causality import (
     load_perceptually_causal_relations,
@@ -190,14 +194,14 @@ class ChainPruner:
 
     def prune_inconsistent_chains_v2(
         self,
-        causal_chain_space: CausalChainStructureSpace,
+        causal_chain_space: TopDownBottomUpStructureAndBeliefSpaceWrapper,
         causal_chain_idxs: Sequence[int],
         sequences_to_prune: Sequence[Tuple[Sequence[Action], Sequence[bool]]],
     ):
         chain_idxs_removed_total = set()
         for actions, change_observed in sequences_to_prune:
             # All the change_observeds end in False, but we're going to set the last value to True
-            # So we get all the chains that actually do precit a change in state.
+            # So we get all the chains that actually do predict a change in state.
             assert not change_observed[-1]
             change_observed = list(change_observed)
             change_observed[-1] = True
@@ -208,7 +212,19 @@ class ChainPruner:
                 )
             )
 
-        # TODO(mjedmonds): this intersection should work, but is not
+            true_chain_idxs_removed = chain_idxs_removed_total.intersection(
+                causal_chain_space.structure_space.true_chain_idxs
+            )
+            if len(true_chain_idxs_removed) > 0:
+                true_chains_removed = [
+                    causal_chain_space.causal_chains[i] for i in true_chain_idxs_removed
+                ]
+                logging.error(
+                    f"True chains with idx={true_chain_idxs_removed}, chain={true_chains_removed} "
+                    f"removed by actions={actions}, changes={change_observed}"
+                )
+                raise RuntimeError("Pruned true chain.")
+
         chain_idxs_removed = set(causal_chain_idxs).intersection(
             chain_idxs_removed_total
         )

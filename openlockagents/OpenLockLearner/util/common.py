@@ -57,8 +57,13 @@ def parse_arguments():
         nargs="+",
         help="ablations, options are: 'top_down', 'bottom_up', 'pruning'",
     )
-    parser.add_argument("--bypass_confirmation", action="store_true")
+    parser.add_argument("--bypass-confirmation", action="store_true")
     parser.add_argument("--verbosity", type=str, help="Logging verbosity")
+    parser.add_argument("--train-attempt-limit", type=int, default=30)
+    parser.add_argument("--test-attempt-limit", type=int, default=1)
+    parser.add_argument(
+        "--n-replications", type=int, default=40,
+    )
     args = parser.parse_args()
     return args
 

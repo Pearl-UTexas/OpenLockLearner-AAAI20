@@ -41,6 +41,7 @@ def generate_chain_structure_space(
         structure=structure,
         attribute_order=env.attribute_order,
         lever_index_mode="position",
+        trie=True,
     )
     logging.info(
         "Generated {} chains in {}s".format(
