@@ -55,14 +55,12 @@ class ModelBasedRLAgent:
         )
 
         # check if this chain is already in our solutions
-        if causal_chain_actions in self.state[1:]:
-            energy = MAX_ENERGY
-        # need to check that we haven't executed this action sequence before
-        elif causal_chain_actions in interventions_executed_set:
-            energy = MAX_ENERGY
-        # check if this chain satisfies our model based planner goal
-        elif not self.model_based_planner.determine_chain_satisfies_goal(
-            causal_chain_space.structure_space, causal_chain_idx
+        if (
+            causal_chain_actions in self.state[1:]
+            or causal_chain_actions in interventions_executed_set
+            or not self.model_based_planner.determine_chain_satisfies_goal(
+                causal_chain_space.structure_space, causal_chain_idx
+            )
         ):
             energy = MAX_ENERGY
         else:

@@ -48,7 +48,7 @@ def main(n_trials: int = 10000):
             ]
             actions = [event[0] for event in observed_events]
             for change_observed in make_change_observed(len(actions)):
-                chain_space.get_chains_from_actions(actions, change_observed)
+                chain_space.get_chain_idxs_from_actions(actions, change_observed)
     end = time.perf_counter()
     print(f"New method average speed={(end - start) / n_trials}")
 

@@ -224,10 +224,10 @@ class BeliefSpace:
 
     def compute_num_idxs_with_belief_above_threshold_common(
         self, starting_idx, ending_idx
-    ):
-        num_idxs_with_belief_above_threshold = sum(
-            self.beliefs[i] > self.belief_threshold
-            for i in range(starting_idx, ending_idx)
+    ) -> int:
+        beliefs = self.beliefs[starting_idx:ending_idx]
+        num_idxs_with_belief_above_threshold = np.sum(
+            beliefs > self.belief_threshold, dtype=int
         )
         return int(num_idxs_with_belief_above_threshold)
 
@@ -247,10 +247,8 @@ class BeliefSpace:
 
     def get_idxs_with_belief_above_threshold(self, print_msg=True):
         start_time = time.time()
-        idxs_above_threshold = [
-            i
-            for i in range(len(self.beliefs))
-            if self.beliefs[i] > self.belief_threshold
+        idxs_above_threshold = np.arange(len(self.beliefs))[
+            self.beliefs > self.belief_threshold
         ]
         if print_msg:
             logging.info(
@@ -280,11 +278,8 @@ class BeliefSpace:
             return sum_beliefs_multiproc(self)
 
     def sum_beliefs_common(self, starting_idx, ending_idx):
-        return sum(
-            self.beliefs[i]
-            for i in range(starting_idx, ending_idx)
-            if self.beliefs[i] > 0
-        )
+        beliefs = self.beliefs[starting_idx:ending_idx]
+        return np.sum(beliefs[beliefs > 0])
 
     def set_belief_threshold(
         self, set_threshold_from_num_ele=True, threshold_specified=None
@@ -295,7 +290,7 @@ class BeliefSpace:
             uniform_belief = 1 / len(self.beliefs)
             self.belief_threshold = uniform_belief - uniform_belief / 10
         else:
-            self.belief_threshold = 0
+            self.belief_threshold = 0.0
         self.belief_threshold = float(self.belief_threshold)
 
     # set uniform prior among all chains with a belief above a specified threshold

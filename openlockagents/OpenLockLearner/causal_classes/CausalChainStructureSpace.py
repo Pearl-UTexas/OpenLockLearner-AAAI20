@@ -13,10 +13,11 @@ from numpy.lib.index_tricks import fill_diagonal
 from openlock.common import Action
 from openlock.logger_env import ActionLog
 from openlockagents.common.io.log_io import pretty_write
-from openlockagents.OpenLockLearner.causal_classes.CausalRelation import \
-    CausalRelation
-from openlockagents.OpenLockLearner.util.common import (ALL_CAUSAL_CHAINS,
-                                                        check_for_duplicates)
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelation
+from openlockagents.OpenLockLearner.util.common import (
+    ALL_CAUSAL_CHAINS,
+    check_for_duplicates,
+)
 
 
 class CausalChainStructureSpace:
@@ -110,7 +111,6 @@ class CausalChainStructureSpace:
         return chain_indices_by_subchain_index
 
     def generate_chains(self):
-        logging.debug("Generating chains")
         subchain_indexed_domains = [list(x) for x in self.subchain_indexed_domains]
         chains = []
         rejected_chains = []
@@ -305,13 +305,11 @@ class CausalChainStructureSpace:
             change_observed
         ), f"action and change lengths don't match {len(actions)} vs {len(change_observed)}"
 
-        logging.debug(f"actions={actions}, change_observed={change_observed}")
-
         if legacy:
             return self.legacy_chain_search(actions, change_observed)
 
         if getattr(self, "trie", None) is not None:
-            return self.get_chains_from_actions(actions, change_observed)
+            return self.get_chain_idxs_from_actions(actions, change_observed)
 
         inclusion_constraints: List[Dict[str, Union[Any, List[Any]]]] = []
         max_delay = 0
@@ -325,7 +323,6 @@ class CausalChainStructureSpace:
                     "action": last_good_action,
                     "delay": list(range(max_delay + 1)),
                 }
-                logging.debug(f"Adding constraint {new_constraint}")
                 inclusion_constraints.append(new_constraint)
 
             last_good_action = action
@@ -349,14 +346,14 @@ class CausalChainStructureSpace:
                 noops += 1
             else:
                 if last_good_action is not None:
-                    events.append((last_good_action, noops))
+                    events.append((last_good_action, min(noops, self.max_delay)))
                     noops = 0
                 last_good_action = action
         if last_good_action is not None:
             events.append((last_good_action, self.max_delay))
         return events
 
-    def get_chains_from_actions(
+    def get_chain_idxs_from_actions(
         self, actions: Sequence[Action], change_observed: Sequence[bool]
     ) -> List[int]:
         assert len(actions) == len(change_observed)

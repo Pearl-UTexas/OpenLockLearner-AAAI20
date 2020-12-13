@@ -103,7 +103,7 @@ def main():
 
     params["using_ids"] = False
     params["multiproc"] = False
-    params["deterministic"] = False
+    params["deterministic"] = True  # Why would you shuffle the chains????
     params["num_agent_runs"] = args.n_replications
     params["src_dir"] = None
     params["print_messages"] = False

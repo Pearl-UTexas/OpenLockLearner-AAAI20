@@ -66,7 +66,10 @@ class CausalLearner:
 
         start_time = time.time()
         map_chains = causal_chain_space.update_bottom_up_beliefs(
-            env.attribute_order, trial_name, multiproc=multiproc
+            env.attribute_order,
+            trial_name,
+            multiproc=multiproc,
+            chain_idxs=chain_idxs_consistent,
         )
         print_message(
             trial_count,

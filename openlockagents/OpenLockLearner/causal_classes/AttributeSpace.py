@@ -125,29 +125,27 @@ class AttributeScope:
         # use index distributions for as many as possible, then use summary distribution to estimate posterior of remaining indices
         distributions = []
         if use_indexed_distributions:
-            distributions.extend(
-                [
-                    self.indexed_distributions[i]
-                    for i in range(len(self.indexed_distributions))
-                ]
-            )
+            distributions.extend(self.indexed_distributions)
         num_distributions = len(distributions)
         distributions.extend(
             [
                 self.summary_distributions
-                for i in range(num_distributions, len(attributes_at_indices))
+                for _ in range(num_distributions, len(attributes_at_indices))
             ]
         )
 
         # compute node posteriors
         for i in range(len(distributions)):
+            assert len(distributions) == len(
+                attributes_at_indices
+            ), f"There are {len(distributions)} dists and {len(attributes_at_indices)} indices"
             posterior_at_indices[i] = self._compute_node_posterior(
-                distributions[i],
-                attribute_order,
-                attributes_at_indices[i],
-                actions_at_indices[i],
-                use_confidence,
-                use_action_distribution,
+                dist_dict=distributions[i],
+                attribute_order=attribute_order,
+                attributes=attributes_at_indices[i],
+                action=actions_at_indices[i],
+                use_confidence=use_confidence,
+                use_action=use_action_distribution,
             )
             num_posteriors_computed += 1
 
@@ -177,7 +175,7 @@ class AttributeScope:
             # shouldn't these sample the dirichlet to get a multinomial?
 
             # two sampling options: from multinomial sampled from dirichlet or from multinormial frequency distribution
-            # use sampled multinomial from Dirichlet (updated every renormalize() call
+            # use sampled multinomial from Dirichlet (updated every renormalize()) call
             dist = dist_dict[attribute].sampled_multinomial
 
             attribute_belief = dist[attribute_value_idxs[i]]
@@ -388,14 +386,14 @@ def create_prior(attribute_scope, scaled=False, scale_min=1, scale_max=10):
     prior = dict()
     prior["summary"] = prior_gen_func(
         attribute_scope.summary_distributions,
-        **{"scale_min": scale_min, "scale_max": scale_max}
+        **{"scale_min": scale_min, "scale_max": scale_max},
     )
     indexed_prior = []
     for i in range(len(attribute_scope.indexed_distributions)):
         indexed_prior.append(
             prior_gen_func(
                 attribute_scope.indexed_distributions[i],
-                **{"scale_min": scale_min, "scale_max": scale_max}
+                **{"scale_min": scale_min, "scale_max": scale_max},
             )
         )
     prior["indexed"] = indexed_prior

@@ -206,13 +206,12 @@ class ChainPruner:
             change_observed = list(change_observed)
             change_observed[-1] = True
 
-            chain_idxs_removed_total.update(
-                causal_chain_space.structure_space.find_causal_chain_idxs_with_actions(
-                    actions, change_observed
-                )
+            logging.debug(f"actions={actions}, change_observed={change_observed}")
+            new_chain_idx_removed = causal_chain_space.structure_space.get_chain_idxs_from_actions(
+                actions, change_observed
             )
 
-            true_chain_idxs_removed = chain_idxs_removed_total.intersection(
+            true_chain_idxs_removed = set(new_chain_idx_removed).intersection(
                 causal_chain_space.structure_space.true_chain_idxs
             )
             if len(true_chain_idxs_removed) > 0:
@@ -221,16 +220,19 @@ class ChainPruner:
                     for i in true_chain_idxs_removed
                 ]
                 logging.error(
-                    f"True chains with idx={true_chain_idxs_removed}, chain={true_chains_removed} "
-                    f"removed by actions={actions}, changes={change_observed}"
+                    f"True chains with idx={true_chain_idxs_removed}\nchain={true_chains_removed}\n"
+                    f"removed by actions={actions}, changes={change_observed}\n"
+                    f"new_chains_removed={new_chain_idx_removed}"
                 )
                 raise RuntimeError("Pruned true chain.")
+
+            chain_idxs_removed_total.update(new_chain_idx_removed)
 
         chain_idxs_removed = set(causal_chain_idxs).intersection(
             chain_idxs_removed_total
         )
         for chain_idx_to_prune in chain_idxs_removed:
-            causal_chain_space.bottom_up_belief_space[chain_idx_to_prune] = 0
+            causal_chain_space.bottom_up_belief_space[chain_idx_to_prune] = 0.0
         chain_idxs_consistent = set(causal_chain_idxs) - chain_idxs_removed
 
         return chain_idxs_consistent, chain_idxs_removed

@@ -2,6 +2,7 @@ import logging
 import multiprocessing
 import sys
 import time
+from typing import Optional, Sequence
 
 import networkx as nx
 import numpy as np
@@ -30,7 +31,7 @@ from openlockagents.OpenLockLearner.util.common import (
 
 
 def update_bottom_up_beliefs_multiproc(
-    top_down_bottom_up_structure_belief_space_wrapper, attribute_order, trial_name
+    top_down_bottom_up_structure_belief_space_wrapper, attribute_order, trial_name,
 ):
     slicing_indices = generate_slicing_indices(
         top_down_bottom_up_structure_belief_space_wrapper.bottom_up_belief_space.beliefs
@@ -367,7 +368,13 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
         )
 
     # updates beliefs based on counts stored with each chain
-    def update_bottom_up_beliefs(self, attribute_order, trial_name, multiproc=False):
+    def update_bottom_up_beliefs(
+        self,
+        attribute_order,
+        trial_name,
+        multiproc=False,
+        chain_idxs: Optional[Sequence[int]] = None,
+    ):
         assert self.bottom_up_belief_space.check_true_chain_idxs_have_belief_above_threshold(
             self.structure_space.true_chain_idxs
         ), "True chains zero before bottom up update."
@@ -381,6 +388,7 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
                 trial_name,
                 starting_idx=0,
                 ending_idx=len(self.bottom_up_belief_space),
+                chain_idxs=chain_idxs,
             )
         else:
             self.bottom_up_belief_space.beliefs = update_bottom_up_beliefs_multiproc(
@@ -407,16 +415,24 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
             assert self.bottom_up_belief_space.check_true_chain_idxs_have_belief_above_threshold(
                 self.structure_space.true_chain_idxs
             ), "True chains zero'd out after renormalizing."
-            assert (
-                self.bottom_up_belief_space.verify_num_idxs_with_belief_above_threshold_is_correct()
-            )
+        #     assert (
+        #         self.bottom_up_belief_space.verify_num_idxs_with_belief_above_threshold_is_correct()
+        #     )
 
         return max_chains
 
     def update_bottom_up_beliefs_common(
-        self, attribute_order, trial_name, starting_idx, ending_idx
+        self,
+        attribute_order,
+        trial_name,
+        starting_idx,
+        ending_idx,
+        chain_idxs: Optional[Sequence[int]] = None,
     ):
-        for causal_chain_idx in range(starting_idx, ending_idx):
+        chain_idxs = (
+            chain_idxs if chain_idxs is not None else range(starting_idx, ending_idx)
+        )
+        for causal_chain_idx in chain_idxs:
             chain_belief = self.bottom_up_belief_space.beliefs[causal_chain_idx]
 
             # don't use belief_threshold here - we only want to eliminate chains we have completely disproven

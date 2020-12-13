@@ -303,7 +303,6 @@ class OpenLockLearnerAgent(Agent):
             action_beliefs_this_attempt = []
 
             sequences_to_prune: List[Tuple[List[Action], List[bool]]] = list()
-
             while not self.env.determine_attempt_finished():
                 (
                     chain_idxs_with_positive_belief,
@@ -353,13 +352,13 @@ class OpenLockLearnerAgent(Agent):
 
                 # execute action
                 reward, state_prev, state_cur = self.execute_action_intervention(action)
-                logging.debug(f"state_cur={state_cur}, state_prev={state_prev}")
                 change_observed.append(state_cur != state_prev)
-                logging.debug(f"change_observed={change_observed[-1]}")
                 if not change_observed[-1]:
-                    sequences_to_prune.append(
+                    sequences_to_prune = [
                         (list(action_sequence), list(change_observed))
-                    )
+                    ]
+                else:
+                    sequences_to_prune = []
 
                 self.update_bottom_up_attribute_beliefs(
                     action, trial_selected, timestep
@@ -402,6 +401,8 @@ class OpenLockLearnerAgent(Agent):
                     assert self.instantiated_schema_space.structure_space.verify_chain_assignment_in_schemas(
                         self.causal_chain_space.structure_space.true_chain_idxs
                     ), "True chains not in instantiated schemas!"
+
+            logging.debug(f"actions={action_sequence}")
 
             # convert to tuple for hashability
             action_sequence = tuple(action_sequence)
@@ -469,7 +470,7 @@ class OpenLockLearnerAgent(Agent):
                 )
                 trial_finished = True
 
-            if self.env.attempt_count > self.env.attempt_limit:
+            if self.env.attempt_count >= self.env.attempt_limit:
                 trial_finished = True
 
         self.finish_trial(trial_selected, test_trial=False)
@@ -803,7 +804,7 @@ class OpenLockLearnerAgent(Agent):
         solution_action_sequence: Sequence[Action],
         solution_change_observed: Sequence[bool],
     ):
-        solution_chains = self.causal_chain_space.structure_space.find_causal_chain_idxs_with_actions(
+        solution_chain_idxs = self.causal_chain_space.structure_space.get_chain_idxs_from_actions(
             solution_action_sequence, solution_change_observed
         )
         # I'm just going to assume that you find the correct action sequence. In reality this
@@ -814,16 +815,14 @@ class OpenLockLearnerAgent(Agent):
         # caused a change, where actions 2 and 4 didn't. You can disambiguate the chain by taking
         # action 1, then taking action 3 until it works, then taking action 5 until it works. The
         # first time it works, we know exactly what the delay is.
-        solution_chain = set(solution_chains).intersection(
-            self.causal_chain_space.structure_space.true_chains
-        )[0]
-        true_chain_idx = self.causal_chain_space.structure_space.true_chains.index(
-            solution_chain
+        solution_chain_idx = next(
+            iter(
+                set(solution_chain_idxs).intersection(
+                    self.causal_chain_space.structure_space.true_chain_idxs
+                )
+            )
         )
-        solution_causal_chain_idx = self.causal_chain_space.structure_space.true_chain_idxs[
-            true_chain_idx
-        ]
-        completed_solution_idxs.append(solution_causal_chain_idx)
+        completed_solution_idxs.append(solution_chain_idx)
         # update the state of the model-based planner
         self.model_based_agent.update_state(
             self.env.get_num_solutions_remaining(), solution_action_sequence
@@ -911,7 +910,7 @@ class OpenLockLearnerAgent(Agent):
         # actual candidate set is the intersection between top down and bottom up
         causal_chain_idxs_with_positive_belief = list(
             set(bottom_up_causal_chain_idxs_with_positive_belief).intersection(
-                set(top_down_causal_chain_idxs_with_positive_belief)
+                top_down_causal_chain_idxs_with_positive_belief
             )
         )
 
@@ -1139,7 +1138,6 @@ class OpenLockLearnerAgent(Agent):
             for x in self.causal_chain_space.structure_space.true_chain_idxs
         ]
         threshold = self.causal_chain_space.bottom_up_belief_space.belief_threshold
-        logging.debug(f"Belief threshold={threshold}, belief={beliefs}")
         return all([belief > threshold] for belief in beliefs)
 
     def attempt_sanity_checks(
