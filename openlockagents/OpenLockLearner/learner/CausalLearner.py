@@ -4,14 +4,10 @@ from typing import Sequence, Tuple
 from openlock.common import Action
 from openlock.envs.openlock_env import OpenLockEnv
 from openlockagents.common.common import DEBUGGING
-from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import (
-    CausalChainStructureSpace,
-)
+from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import \
+    CausalChainStructureSpace
 from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
-    CausalObservation,
-    CausalRelation,
-    CausalRelationType,
-)
+    CausalObservation, CausalRelation, CausalRelationType)
 from openlockagents.OpenLockLearner.learner.ChainPruner import ChainPruner
 from openlockagents.OpenLockLearner.util.common import print_message
 
@@ -26,7 +22,6 @@ class CausalLearner:
         self,
         env: OpenLockEnv,
         causal_chain_space: CausalChainStructureSpace,
-        causal_chain_idxs: Sequence[int],
         sequences_to_prune: Sequence[Tuple[Sequence[Action], Sequence[bool]]],
         trial_name: str,
         trial_count: int,
@@ -52,7 +47,7 @@ class CausalLearner:
                 chain_idxs_removed,
             ) = self.chain_pruner.prune_inconsistent_chains_v2(
                 causal_chain_space=causal_chain_space,
-                causal_chain_idxs=causal_chain_idxs,
+                causal_chain_idxs=chain_idxs_consistent,
                 sequences_to_prune=sequences_to_prune,
             )
 

@@ -306,7 +306,7 @@ class OpenLockLearnerAgent(Agent):
             while not self.env.determine_attempt_finished():
                 (
                     chain_idxs_with_positive_belief,
-                    bottom_up_chain_idxs_with_positive_belief,
+                    _,
                     _,
                 ) = self.get_causal_chain_idxs_with_positive_belief()
 
@@ -375,7 +375,6 @@ class OpenLockLearnerAgent(Agent):
                 ) = self.causal_learner.update_bottom_up_causal_model(
                     env=self.env,
                     causal_chain_space=self.causal_chain_space,
-                    causal_chain_idxs=bottom_up_chain_idxs_with_positive_belief,
                     sequences_to_prune=sequences_to_prune,
                     trial_name=trial_selected,
                     trial_count=self.trial_count,
@@ -1278,20 +1277,20 @@ class OpenLockLearnerAgent(Agent):
     def print_num_attempts_per_trial(self):
         table = texttable.Texttable()
         max_num_solutions = max(
-            [
-                len(self.num_attempts_between_solutions[trial_name])
-                for trial_name in self.trial_order
-            ]
+            len(self.num_attempts_between_solutions[trial_name])
+            for trial_name in self.attempt_count_per_trial.keys()
         )
         chain_content = []
         for trial_name, attempt_count in self.attempt_count_per_trial.items():
             new_chain_content = [trial_name, attempt_count]
-            num_attempts_between_solutions = [
-                x for x in self.num_attempts_between_solutions[trial_name]
-            ]
+            num_attempts_between_solutions = list(
+                self.num_attempts_between_solutions[trial_name]
+            )
             if len(num_attempts_between_solutions) != max_num_solutions:
                 # add in values for 3-lever vs 4-lever, two additional columns for trial name and total attempt count
-                num_attempts_between_solutions.append("N/A")
+                num_attempts_between_solutions.extend(
+                    ["N/A"] * (max_num_solutions - len(num_attempts_between_solutions))
+                )
             new_chain_content.extend(num_attempts_between_solutions)
             chain_content.append(new_chain_content)
 
@@ -1301,7 +1300,8 @@ class OpenLockLearnerAgent(Agent):
         ]
         headers.extend(addition_header_content)
         alignment = ["l", "r"]
-        alignment.extend(["r" for i in range(max_num_solutions)])
+        alignment.extend(["r"] * max_num_solutions)
+        assert len(alignment) == len(headers)
         table.set_cols_align(alignment)
         content = [headers]
         content.extend(chain_content)

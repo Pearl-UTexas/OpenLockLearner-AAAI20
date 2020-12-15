@@ -148,7 +148,7 @@ class ModelBasedRLAgent:
 
         # find causal chains that contain this action sequence
         if len(action_sequence) > 0:
-            causal_chain_idxs_with_action_seq = causal_chain_space.structure_space.find_causal_chain_idxs_with_actions(
+            causal_chain_idxs_with_action_seq = causal_chain_space.structure_space.get_chain_idxs_from_actions(
                 action_sequence, change_observed
             )
             causal_chain_idxs = list(

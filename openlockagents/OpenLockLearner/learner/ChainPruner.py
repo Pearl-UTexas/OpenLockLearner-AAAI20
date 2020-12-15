@@ -231,7 +231,9 @@ class ChainPruner:
         chain_idxs_removed = set(causal_chain_idxs).intersection(
             chain_idxs_removed_total
         )
-        for chain_idx_to_prune in chain_idxs_removed:
+        # This might be more efficient looping over only chain_idxs_removed but I'm afraid there's
+        # a bug there.
+        for chain_idx_to_prune in chain_idxs_removed_total:
             causal_chain_space.bottom_up_belief_space[chain_idx_to_prune] = 0.0
         chain_idxs_consistent = set(causal_chain_idxs) - chain_idxs_removed
 
