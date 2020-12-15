@@ -1,23 +1,18 @@
 import logging
 import multiprocessing
 import time
-from typing import Sequence
+from typing import List, Optional, Sequence
 
 import networkx as nx
 import numpy as np
 from joblib import Parallel, delayed
-from openlockagents.OpenLockLearner.causal_classes.AttributeSpace import (
-    setup_attribute_space,
-)
-from openlockagents.OpenLockLearner.causal_classes.DirichletDistribution import (
-    DirichletDistribution,
-)
+from openlockagents.OpenLockLearner.causal_classes.AttributeSpace import \
+    setup_attribute_space
+from openlockagents.OpenLockLearner.causal_classes.DirichletDistribution import \
+    DirichletDistribution
 from openlockagents.OpenLockLearner.util.common import (
-    PARALLEL_MAX_NBYTES,
-    SANITY_CHECK_ELEMENT_LIMIT,
-    generate_slicing_indices,
-    get_highest_N_idxs,
-)
+    PARALLEL_MAX_NBYTES, SANITY_CHECK_ELEMENT_LIMIT, generate_slicing_indices,
+    get_highest_N_idxs)
 
 
 # helper functions for multiprocessing
@@ -71,7 +66,7 @@ def sum_beliefs_multiproc(belief_space):
         return sum(sums)
 
 
-def renormalize_beliefs_multiproc(belief_space, normalization_factor):
+def renormalize_beliefs_multiproc(belief_space, normalization_factor: float, ):
     belief_space.num_idxs_with_belief_above_threshold = 0
     slicing_indices = generate_slicing_indices(belief_space.beliefs)
     with Parallel(
@@ -131,17 +126,16 @@ class BeliefSpace:
     def __setitem__(self, idx, value):
         self.beliefs[idx] = value
 
-    def renormalize_beliefs(self, multiproc=False):
+    def renormalize_beliefs(self, chain_idxs: Optional[Sequence[int]] = None, multiproc=False):
         """
         renormalizes beliefs to be a probablity distribution (normalizes belief between 0 and 1
         :param multiproc: whether or not to use multiprocessing
         :return: list of chains with the maximimal belief
         """
 
-        self.num_idxs_with_belief_above_threshold = 0
 
         # compute normalization factor
-        normalization_factor = self.sum_beliefs(multiproc=multiproc)
+        normalization_factor = self.sum_beliefs(chain_idxs=chain_idxs, multiproc=multiproc)
         assert (
             normalization_factor != 0
         ), "Normalization factor is zero: no chains with positive belief"
@@ -155,27 +149,32 @@ class BeliefSpace:
                 _,
                 _,
             ) = self.renormalize_beliefs_common(
-                normalization_factor, 0, len(self.beliefs)
+                normalization_factor, 0, len(self.beliefs), chain_idxs
             )
             self.num_idxs_with_belief_above_threshold = (
                 num_elements_with_belief_above_threshold
             )
-            return max_elements
         else:
             (
                 max_elements,
                 _,
                 num_elements_with_belief_above_threshold,
             ) = renormalize_beliefs_multiproc(self, normalization_factor)
-            return max_elements
+
+        self.compute_num_idx_with_belief_above_threshold(multiproc=multiproc) 
+
+        return max_elements
 
     def renormalize_beliefs_common(
-        self, normalization_factor, starting_idx, ending_idx
+        self, normalization_factor, starting_idx, ending_idx, chain_idxs: Optional[Sequence[int]] = None
     ):
         num_elements_with_belief_above_threshold = 0
         max_elements = []
         max_belief = -1
-        for element_idx in range(starting_idx, ending_idx):
+
+        idxs = chain_idxs if chain_idxs is not None else range(starting_idx, ending_idx)
+
+        for element_idx in idxs:
             element_belief = self.beliefs[element_idx]
             if element_belief <= 0:
                 continue
@@ -245,19 +244,10 @@ class BeliefSpace:
                 return False
         return True
 
-    def get_idxs_with_belief_above_threshold(self, print_msg=True):
-        start_time = time.time()
+    def get_idxs_with_belief_above_threshold(self):
         idxs_above_threshold = np.arange(len(self.beliefs))[
             self.beliefs > self.belief_threshold
         ]
-        if print_msg:
-            logging.info(
-                "Getting {} indices with belief above threshold {} took {:0.6f}s".format(
-                    len(idxs_above_threshold),
-                    self.belief_threshold,
-                    time.time() - start_time,
-                )
-            )
         if len(idxs_above_threshold) < SANITY_CHECK_ELEMENT_LIMIT:
             assert all(
                 [
@@ -271,9 +261,12 @@ class BeliefSpace:
     def get_highest_N_belief_idxs(self, N):
         return get_highest_N_idxs(N, self.beliefs)
 
-    def sum_beliefs(self, multiproc=False):
+    def sum_beliefs(self, chain_idxs: Optional[Sequence[int]] = None, multiproc=False):
         if not multiproc:
-            return self.sum_beliefs_common(0, len(self.beliefs))
+            if chain_idxs is None:
+                return self.sum_beliefs_common(0, len(self.beliefs))
+            else:
+                return np.sum(self.beliefs[chain_idxs])
         else:
             return sum_beliefs_multiproc(self)
 
@@ -358,21 +351,6 @@ class TopDownChainBeliefSpace(BeliefSpace):
             num_ele, belief_threshold, init_to_zero
         )
 
-    def get_idxs_with_belief_above_threshold(self, print_msg=True):
-        start_time = time.time()
-        idxs_above_threshold = super(
-            TopDownChainBeliefSpace, self
-        ).get_idxs_with_belief_above_threshold(print_msg=False)
-        if print_msg:
-            logging.info(
-                "Getting {} top-down indices with belief above threshold {} took {:0.6f}s".format(
-                    len(idxs_above_threshold),
-                    self.belief_threshold,
-                    time.time() - start_time,
-                )
-            )
-        return idxs_above_threshold
-
 
 class BottomUpChainBeliefSpace(BeliefSpace):
     def __init__(
@@ -399,22 +377,6 @@ class BottomUpChainBeliefSpace(BeliefSpace):
         return super(
             BottomUpChainBeliefSpace, self
         ).check_idxs_have_belief_above_threshold(idxs)
-
-    def get_idxs_with_belief_above_threshold(self, print_msg=True):
-        start_time = time.time()
-        idxs_above_threshold = super(
-            BottomUpChainBeliefSpace, self
-        ).get_idxs_with_belief_above_threshold(print_msg=False)
-        if print_msg:
-            logging.info(
-                "Getting {} bottom-up indices with belief above threshold {} took {:0.6f}s".format(
-                    len(idxs_above_threshold),
-                    self.belief_threshold,
-                    time.time() - start_time,
-                )
-            )
-        return idxs_above_threshold
-
 
 class AtomicSchemaBeliefSpace:
     def __init__(self, num_ele, belief_threshold=0.0, alpha_increase=1):

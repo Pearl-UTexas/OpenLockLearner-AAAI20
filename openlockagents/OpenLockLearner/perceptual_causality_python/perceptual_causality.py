@@ -1,15 +1,13 @@
 import pickle
 
 import numpy as np
-
-from openlock.settings_trial import generate_attributes_by_trial
-
+from openlock.settings_trial import generate_attributes_by_trial  # type: ignore
+from openlockagents.common.io.log_io import load_human_data_pickle
 from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
-    CausalRelationType,
     CausalObservation,
+    CausalRelationType,
 )
 from openlockagents.OpenLockLearner.util.common import load_openlock_learner_config_json
-from openlockagents.common.io.log_io import load_human_data_pickle
 
 
 def scan_for_causal_relations_by_subject(human_subjects):

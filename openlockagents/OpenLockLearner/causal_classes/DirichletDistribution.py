@@ -1,5 +1,5 @@
 import numpy as np
-import scipy
+import scipy  # type: ignore
 
 
 # TODO(mjedmonds): rethink how to do local/global attribute sampling.

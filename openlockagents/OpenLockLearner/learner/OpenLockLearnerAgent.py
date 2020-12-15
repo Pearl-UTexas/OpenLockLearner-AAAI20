@@ -3,75 +3,73 @@ import logging
 import math
 import random
 import time
-from typing import List, Sequence, Tuple, Union
+from typing import Any, Dict, List, Sequence, Tuple, Union
 
 import numpy as np
 import texttable  # type: ignore
 from openlock.common import ENTITY_STATES, Action
+from openlock.envs.openlock_env import OpenLockEnv
 from openlockagents.common.agent import Agent
 from openlockagents.common.common import DEBUGGING
 from openlockagents.OpenLockLearner.causal_classes.BeliefSpace import (
-    AbstractSchemaBeliefSpace,
-    AtomicSchemaBeliefSpace,
-    BottomUpChainBeliefSpace,
-    InstantiatedSchemaBeliefSpace,
-    TopDownChainBeliefSpace,
-)
+    AbstractSchemaBeliefSpace, AtomicSchemaBeliefSpace,
+    BottomUpChainBeliefSpace, InstantiatedSchemaBeliefSpace,
+    TopDownChainBeliefSpace)
+from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import \
+    CausalChainStructureSpace
 from openlockagents.OpenLockLearner.causal_classes.OutcomeSpace import (
-    Outcome,
-    OutcomeSpace,
-)
+    Outcome, OutcomeSpace)
 from openlockagents.OpenLockLearner.causal_classes.SchemaStructureSpace import (
-    AtomicSchemaStructureSpace,
-    InstantiatedSchemaStructureSpace,
-)
+    AtomicSchemaStructureSpace, InstantiatedSchemaStructureSpace)
 from openlockagents.OpenLockLearner.causal_classes.StructureAndBeliefSpaceWrapper import (
     AbstractSchemaStructureAndBeliefWrapper,
     AtomicSchemaStructureAndBeliefWrapper,
     InstantiatedSchemaStructureAndBeliefWrapper,
-    TopDownBottomUpStructureAndBeliefSpaceWrapper,
-)
+    TopDownBottomUpStructureAndBeliefSpaceWrapper)
 from openlockagents.OpenLockLearner.learner.CausalLearner import CausalLearner
-from openlockagents.OpenLockLearner.learner.InterventionSelector import (
-    InterventionSelector,
-)
-from openlockagents.OpenLockLearner.learner.ModelBasedRL import ModelBasedRLAgent
-from openlockagents.OpenLockLearner.util.common import print_message
-from openlockagents.OpenLockLearner.util.util import (
-    generate_solutions_by_trial_causal_relation,
-)
+from openlockagents.OpenLockLearner.learner.InterventionSelector import \
+    InterventionSelector
+from openlockagents.OpenLockLearner.learner.ModelBasedRL import \
+    ModelBasedRLAgent
+from openlockagents.OpenLockLearner.util.common import (AblationParams,
+                                                        print_message)
+from openlockagents.OpenLockLearner.util.util import \
+    generate_solutions_by_trial_causal_relation
 
 
 class OpenLockLearnerAgent(Agent):
-    def __init__(self, env, causal_chain_structure_space, params, **kwargs):
+    def __init__(
+        self,
+        env: OpenLockEnv,
+        causal_chain_structure_space: CausalChainStructureSpace,
+        params: Dict[str, Any],
+        **kwargs,
+    ):
         super(OpenLockLearnerAgent, self).__init__("OpenLockLearner", params, env)
         super(OpenLockLearnerAgent, self).setup_subject(
             human=False, project_src=params["src_dir"]
         )
-        self.trial_order = []
+        self.trial_order: List[str] = []
         # dicts to keep track of what happened each trial
-        self.rewards = dict()
-        self.num_chains_with_belief_above_threshold_per_attempt = dict()
-        self.attempt_count_per_trial = dict()
-        self.num_attempts_between_solutions = dict()
-        self.information_gains_per_attempt = dict()
-        self.belief_thresholds_per_attempt = dict()
-        self.intervention_chain_idxs_per_attempt = dict()
-        self.interventions_per_attempt = dict()
+        self.rewards: Dict[str, List[float]] = dict()
+        self.num_chains_with_belief_above_threshold_per_attempt: Dict[str, int] = dict()
+        self.attempt_count_per_trial: Dict[str, int] = dict()
+        self.num_attempts_between_solutions: Dict[str, int] = dict()
+        self.information_gains_per_attempt: Dict[str, float] = dict()
+        self.belief_thresholds_per_attempt: Dict[str, float] = dict()
+        self.intervention_chain_idxs_per_attempt: Dict[str, int] = dict()
+        self.interventions_per_attempt: Dict[str, Tuple[Action]] = dict()
 
-        if "print_messages" in params.keys():
-            self.print_messages = params["print_messages"]
-        else:
-            self.print_messages = True
+        self.print_messages = params.get("print_messages", True)
         causal_chain_structure_space.print_messages = self.print_messages
 
-        self.multiproc = params["multiproc"]
-        self.deterministic = params["deterministic"]
-        self.chain_sample_size = params["chain_sample_size"]
-        self.lambda_multiplier = params["lambda_multiplier"]
+        self.multiproc: bool = params["multiproc"]
+        self.deterministic: bool = params["deterministic"]
+        self.chain_sample_size: int = params["chain_sample_size"]
+        self.lambda_multiplier: float = params["lambda_multiplier"]
         self.local_alpha_update = params["local_alpha_update"]
         self.global_alpha_update = params["global_alpha_update"]
-        self.ablation = params["ablation_params"]
+        self.ablation: AblationParams = params["ablation_params"]
         self.epsilon = params["epsilon"]
         self.epsilon_decay = params["epsilon_decay"]
         self.epsilon_active = params["epsilon_active"]
@@ -83,7 +81,7 @@ class OpenLockLearnerAgent(Agent):
         self.intervention_selector = InterventionSelector(
             params["intervention_sample_size"], self.print_messages
         )
-        self.model_based_agent = None
+        self.model_based_agent: ModelBasedRLAgent = None
 
         # schema managers (structural)
         three_solution_abstract_schema_structure_space = kwargs[
@@ -289,8 +287,9 @@ class OpenLockLearnerAgent(Agent):
             else set()
         )
 
+        dont_push = False
+
         while not trial_finished:
-            start_time = time.time()
             self.env.reset()
 
             timestep = 0
@@ -300,7 +299,7 @@ class OpenLockLearnerAgent(Agent):
 
             action_sequence: List[int] = list()
             change_observed: List[bool] = list()
-            action_beliefs_this_attempt = []
+            action_beliefs_this_attempt: List[float] = []
 
             sequences_to_prune: List[Tuple[List[Action], List[bool]]] = list()
             while not self.env.determine_attempt_finished():
@@ -310,16 +309,15 @@ class OpenLockLearnerAgent(Agent):
                     _,
                 ) = self.get_causal_chain_idxs_with_positive_belief()
 
-                e = np.random.sample()
                 # if we provide a list of epsilons from human data, put it here
-                if self.epsilon_ratios is not None:
-                    epsilon = self.epsilon_ratios[self.trial_count - 1]
-                else:
-                    epsilon = self.epsilon
-                # random policy
-                if self.epsilon_active and e < epsilon:
+                epsilon = (
+                    self.epsilon_ratios[self.trial_count - 1]
+                    if self.epsilon_ratios is not None
+                    else self.epsilon
+                )
+
+                if self.epsilon_active and np.random.sample() < epsilon:
                     action = self.model_based_agent.random_action_policy()
-                # greedy policy
                 else:
                     (
                         action,
@@ -333,26 +331,25 @@ class OpenLockLearnerAgent(Agent):
                         interventions_executed=self.interventions_per_attempt[
                             self.current_trial_name
                         ],
-                        first_agent_trial=self.determine_first_trial(),
+                        first_trial=self.determine_first_trial(),
                         ablation=self.ablation,
+                        dont_push=dont_push,
                     )
                     # if action_beliefs is an empty dict, we picked a random action
                     action_beliefs_this_attempt.append(action_beliefs)
-
                 action_sequence.append(action)
 
-                print_message(
-                    self.trial_count,
-                    self.attempt_count,
-                    "Intervention selection took {:0.6f}s and selected intervention: {}".format(
-                        time.time() - start_time, action
-                    ),
-                    self.print_messages,
-                )
-
-                # execute action
                 reward, state_prev, state_cur = self.execute_action_intervention(action)
+
                 change_observed.append(state_cur != state_prev)
+
+                if (
+                    change_observed == [True, False, False]
+                    and str(action_sequence[2]) == "push_door"
+                ):
+                    dont_push = True
+                    logging.debug(f"dont_push=True")
+
                 if not change_observed[-1]:
                     sequences_to_prune = [
                         (list(action_sequence), list(change_observed))
@@ -361,14 +358,13 @@ class OpenLockLearnerAgent(Agent):
                     sequences_to_prune = []
 
                 self.update_bottom_up_attribute_beliefs(
-                    action, trial_selected, timestep
+                    action, trial_selected, timestep=np.sum(change_observed) - 1
                 )
                 timestep += 1
                 attempt_reward += reward
 
-                # update causal models
                 (
-                    map_chains,
+                    _,
                     num_chains_pruned_this_action,
                     _,
                     chain_idxs_pruned,
@@ -383,8 +379,8 @@ class OpenLockLearnerAgent(Agent):
                     multiproc=self.multiproc,
                 )
                 num_chains_pruned_this_attempt += num_chains_pruned_this_action
-
                 chain_idxs_pruned_this_trial.update(chain_idxs_pruned)
+
                 assert (
                     self.verify_true_causal_idxs_have_belief_above_threshold()
                 ), "True causal chain idx had belief drop below 0!"
@@ -434,14 +430,6 @@ class OpenLockLearnerAgent(Agent):
                     num_solutions_remaining=num_solutions_remaining,
                     multiproc=self.multiproc,
                 )
-
-            self.print_attempt_update(
-                action_sequence,
-                attempt_reward,
-                num_chains_pruned_this_attempt,
-                model_based_solution_chain_idxs=[],
-                map_chains=map_chains,
-            )
 
             self.finish_attempt_openlock_agent(
                 trial_selected, prev_num_solutions_remaining, attempt_reward,
@@ -620,9 +608,9 @@ class OpenLockLearnerAgent(Agent):
 
             # update beliefs, uses self's log to get executed interventions/outcomes among ALL chains with with positive belief (even those below threshold)
             (
-                map_chains,
+                _,
                 num_chains_pruned_this_attempt,
-                chain_idxs_consistent,
+                _,
                 chain_idxs_pruned,
             ) = self.causal_learner.update_bottom_up_causal_model(
                 env=self.env,
@@ -652,14 +640,6 @@ class OpenLockLearnerAgent(Agent):
                 assert self.instantiated_schema_space.structure_space.verify_chain_assignment_in_schemas(
                     self.causal_chain_space.structure_space.true_chain_idxs
                 ), "True chains not in instantiated schemas!"
-
-            self.print_attempt_update(
-                intervention,
-                attempt_reward,
-                num_chains_pruned_this_attempt,
-                model_based_solution_chain_idxs=[],
-                map_chains=map_chains,
-            )
 
             self.finish_attempt_openlock_agent(
                 trial_selected, prev_num_solutions_remaining, attempt_reward,
@@ -900,12 +880,8 @@ class OpenLockLearnerAgent(Agent):
 
     def get_causal_chain_idxs_with_positive_belief(self):
         # get indices with positive belief from top-down and bottom-up
-        bottom_up_causal_chain_idxs_with_positive_belief = self.causal_chain_space.bottom_up_belief_space.get_idxs_with_belief_above_threshold(
-            print_msg=self.print_messages
-        )
-        top_down_causal_chain_idxs_with_positive_belief = self.causal_chain_space.top_down_belief_space.get_idxs_with_belief_above_threshold(
-            print_msg=self.print_messages
-        )
+        bottom_up_causal_chain_idxs_with_positive_belief = self.causal_chain_space.bottom_up_belief_space.get_idxs_with_belief_above_threshold()
+        top_down_causal_chain_idxs_with_positive_belief = self.causal_chain_space.top_down_belief_space.get_idxs_with_belief_above_threshold()
         # actual candidate set is the intersection between top down and bottom up
         causal_chain_idxs_with_positive_belief = list(
             set(bottom_up_causal_chain_idxs_with_positive_belief).intersection(
@@ -1199,80 +1175,6 @@ class OpenLockLearnerAgent(Agent):
         self.causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
             chain_idxs, q_values=chain_q_values, print_messages=self.print_messages
         )
-
-    def print_attempt_update(
-        self,
-        intervention_str,
-        attempt_reward,
-        num_chains_pruned_this_attempt,
-        model_based_solution_chain_idxs,
-        map_chains,
-    ):
-        if DEBUGGING:
-            logging.debug(self.env.cur_trial.attempt_seq[-1].action_seq)
-
-        self.plot_reward(attempt_reward, self.total_attempt_count)
-        print_message(
-            self.trial_count,
-            self.attempt_count,
-            "{} chains pruned this attempt".format(num_chains_pruned_this_attempt),
-            self.print_messages,
-        )
-
-        if 0 < len(model_based_solution_chain_idxs) < 20:
-            if DEBUGGING:
-                print_message(
-                    self.trial_count,
-                    self.attempt_count,
-                    "MODEL-BASED SOLUTION CHAINS",
-                    self.print_messages,
-                )
-                self.causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
-                    model_based_solution_chain_idxs,
-                    self.causal_chain_space.bottom_up_belief_space,
-                    print_messages=self.print_messages,
-                )
-
-        if 0 < len(map_chains) < 20:
-            if (
-                self.causal_chain_space.bottom_up_belief_space.num_idxs_with_belief_above_threshold
-                < 20
-            ):
-                print_message(
-                    self.trial_count,
-                    self.attempt_count,
-                    "CHAINS WITH BELIEF ABOVE {}: {}".format(
-                        self.causal_chain_space.bottom_up_belief_space.belief_threshold,
-                        self.causal_chain_space.bottom_up_belief_space.num_idxs_with_belief_above_threshold,
-                    ),
-                    self.print_messages,
-                )
-                self.causal_chain_space.structure_space.print_chains_above_threshold(
-                    self.causal_chain_space.bottom_up_belief_space,
-                    self.causal_chain_space.bottom_up_belief_space.belief_threshold,
-                )
-            if DEBUGGING:
-                print_message(
-                    self.trial_count,
-                    self.attempt_count,
-                    "MAP CHAINS",
-                    self.print_messages,
-                )
-                self.causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
-                    map_chains,
-                    self.causal_chain_space.bottom_up_belief_space,
-                    print_messages=self.print_messages,
-                )
-
-        if attempt_reward > 0:
-            print_message(
-                self.trial_count,
-                self.attempt_count,
-                "Executed {} with reward of {}".format(
-                    intervention_str, attempt_reward
-                ),
-                self.print_messages,
-            )
 
     def print_num_attempts_per_trial(self):
         table = texttable.Texttable()

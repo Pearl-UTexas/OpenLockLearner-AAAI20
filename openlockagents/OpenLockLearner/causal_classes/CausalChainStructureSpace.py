@@ -9,15 +9,13 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import jsonpickle  # type: ignore
 import numpy as np
 import texttable  # type: ignore
-from numpy.lib.index_tricks import fill_diagonal
-from openlock.common import Action
-from openlock.logger_env import ActionLog
+from openlock.common import Action  # type: ignore
+from openlock.logger_env import ActionLog  # type: ignore
 from openlockagents.common.io.log_io import pretty_write
-from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelation
-from openlockagents.OpenLockLearner.util.common import (
-    ALL_CAUSAL_CHAINS,
-    check_for_duplicates,
-)
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import \
+    CausalRelation
+from openlockagents.OpenLockLearner.util.common import (ALL_CAUSAL_CHAINS,
+                                                        check_for_duplicates)
 
 
 class CausalChainStructureSpace:
@@ -76,7 +74,7 @@ class CausalChainStructureSpace:
         Key = Tuple[Action, int]
         # Dict values consists of the next layer of the Trie and the indexes of the causal chains
         # consistent up to this point
-        Value = Tuple[Dict[Key, Any], Sequence[int]]
+        Value = Tuple[Dict[Key, Any], List[int]]
         trie: Dict[Key, Value] = {}
         for idx, chain in enumerate(self.causal_chains):
             parents = [trie]
@@ -358,6 +356,7 @@ class CausalChainStructureSpace:
     ) -> List[int]:
         assert len(actions) == len(change_observed)
         causal_events = self._make_causal_events(actions, change_observed)
+        logging.debug(f"actions={actions}, change_observed={change_observed}, causal_events={causal_events}")
         if len(causal_events) > 0:
             node = self.trie
             for event in causal_events:
@@ -525,10 +524,11 @@ class CausalChainStructureSpace:
             self.causal_chains.pop(index)
 
     def shuffle(self):
-        random.shuffle(self.causal_chains)
-        self.subchain_indexed_causal_relation_to_chain_index_map = self.construct_chain_indices_by_subchain_index(
-            self.causal_chains, self.chain_length
-        )
+        raise ValueError("Fuck you and the pig you rode here on.")
+        # random.shuffle(self.causal_chains)
+        # self.subchain_indexed_causal_relation_to_chain_index_map = self.construct_chain_indices_by_subchain_index(
+        #     self.causal_chains, self.chain_length
+        # )
 
     @property
     def num_attributes(self):

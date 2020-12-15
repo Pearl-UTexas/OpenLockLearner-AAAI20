@@ -29,11 +29,7 @@ class CausalLearner:
         prune_inconsitent_chains=True,
         multiproc=False,
     ):
-        function_start_time = time.time()
-
-        chain_idxs_consistent = causal_chain_space.bottom_up_belief_space.get_idxs_with_belief_above_threshold(
-            print_msg=False
-        )
+        chain_idxs_consistent = causal_chain_space.bottom_up_belief_space.get_idxs_with_belief_above_threshold()
         chain_idxs_removed = []
 
         prev_num_chains_with_belief_above_threshold = (
@@ -51,26 +47,11 @@ class CausalLearner:
                 sequences_to_prune=sequences_to_prune,
             )
 
-        if DEBUGGING:
-            print_message(
-                trial_count,
-                attempt_count,
-                "REMOVED {} CHAINS".format(len(chain_idxs_removed)),
-                self.print_messages,
-            )
-
-        start_time = time.time()
         map_chains = causal_chain_space.update_bottom_up_beliefs(
             env.attribute_order,
             trial_name,
             multiproc=multiproc,
             chain_idxs=chain_idxs_consistent,
-        )
-        print_message(
-            trial_count,
-            attempt_count,
-            "Updating beliefs took {:0.6f}s".format(time.time() - start_time),
-            self.print_messages,
         )
 
         # the remainder of this function is bookkeeping
@@ -81,35 +62,11 @@ class CausalLearner:
             prev_num_chains_with_belief_above_threshold
             - num_chains_with_belief_above_threshold
         )
-        if num_chains_pruned < 0:
-            start_msg = "Added {} chains above threshold".format(-1 * num_chains_pruned)
-        else:
-            start_msg = "Eliminated {} chains".format(num_chains_pruned)
 
         assert num_chains_pruned == len(
             chain_idxs_removed
         ), "Number of chains removed is incorrect"
 
-        print_message(
-            trial_count,
-            attempt_count,
-            "{}. {} chains pruned across all attempts. Previous number chains above threshold: {} current: {}".format(
-                start_msg,
-                len(causal_chain_space.structure_space.causal_chains)
-                - num_chains_pruned,
-                prev_num_chains_with_belief_above_threshold,
-                num_chains_with_belief_above_threshold,
-            ),
-            self.print_messages,
-        )
-        print_message(
-            trial_count,
-            attempt_count,
-            "Model update/pruning took {:0.6f}s".format(
-                time.time() - function_start_time
-            ),
-            self.print_messages,
-        )
         return map_chains, num_chains_pruned, chain_idxs_consistent, chain_idxs_removed
 
     @staticmethod

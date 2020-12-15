@@ -5,20 +5,12 @@ from typing import Sequence, Tuple
 from joblib import Parallel, delayed  # type: ignore
 from openlock.common import Action
 from openlockagents.common.common import DEBUGGING
-from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import (
-    CausalChainStructureSpace,
-)
-from openlockagents.OpenLockLearner.causal_classes.StructureAndBeliefSpaceWrapper import (
-    TopDownBottomUpStructureAndBeliefSpaceWrapper,
-)
-from openlockagents.OpenLockLearner.perceptual_causality_python.perceptual_causality import (
-    load_perceptually_causal_relations,
-)
+from openlockagents.OpenLockLearner.causal_classes.StructureAndBeliefSpaceWrapper import \
+    TopDownBottomUpStructureAndBeliefSpaceWrapper
+from openlockagents.OpenLockLearner.perceptual_causality_python.perceptual_causality import \
+    load_perceptually_causal_relations
 from openlockagents.OpenLockLearner.util.common import (
-    PARALLEL_MAX_NBYTES,
-    generate_slicing_indices,
-    print_message,
-)
+    PARALLEL_MAX_NBYTES, generate_slicing_indices, print_message)
 
 
 def prune_chains_from_initial_observation_multiproc(
@@ -210,6 +202,7 @@ class ChainPruner:
             new_chain_idx_removed = causal_chain_space.structure_space.get_chain_idxs_from_actions(
                 actions, change_observed
             )
+            logging.debug(f"Chains I want to remove={new_chain_idx_removed}")
 
             true_chain_idxs_removed = set(new_chain_idx_removed).intersection(
                 causal_chain_space.structure_space.true_chain_idxs
@@ -231,6 +224,7 @@ class ChainPruner:
         chain_idxs_removed = set(causal_chain_idxs).intersection(
             chain_idxs_removed_total
         )
+        logging.debug(f"Chains I am about to remove={chain_idxs_removed}")
         # This might be more efficient looping over only chain_idxs_removed but I'm afraid there's
         # a bug there.
         for chain_idx_to_prune in chain_idxs_removed_total:

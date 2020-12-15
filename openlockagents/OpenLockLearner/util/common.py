@@ -216,8 +216,7 @@ CAUSAL_CHAIN_EDGES = (
 THREE_LEVER_TRIALS = ["trial1", "trial2", "trial3", "trial4", "trial5", "trial6"]
 FOUR_LEVER_TRIALS = ["trial7", "trial8", "trial9", "trial10", "trial11"]
 
-TRUE_GRAPH_CPT_CHOICES = (1, 1, 0)
-TRUE_GRAPH_CPT_CHOICES = tuple([GRAPH_INT_TYPE(x) for x in TRUE_GRAPH_CPT_CHOICES])
+TRUE_GRAPH_CPT_CHOICES = tuple([GRAPH_INT_TYPE(x) for x in (1, 1, 0)])
 PLAUSIBLE_CPT_CHOICES = [
     TRUE_GRAPH_CPT_CHOICES,
     tuple([GRAPH_INT_TYPE(x) for x in (1, 1, 1)]),

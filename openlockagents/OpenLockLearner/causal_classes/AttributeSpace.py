@@ -1,30 +1,10 @@
 import logging
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import texttable
-from openlockagents.OpenLockLearner.causal_classes.DirichletDistribution import (
-    DirichletDistribution,
-)
-
-
-def setup_attribute_space(attributes, convert_to_ids=False, unique_id_manager=None):
-    initial_attributes = list()
-    for key, value in attributes.items():
-        if convert_to_ids:
-            attribute_labels = [
-                unique_id_manager.convert_attribute_to_target_type(
-                    key, value_label, target_type="int"
-                )
-                for value_label in value
-            ]
-        else:
-            attribute_labels = value
-        initial_attributes.append((key, len(attribute_labels), attribute_labels))
-    attribute_space = AttributeSpace(
-        initial_attributes=initial_attributes, using_ids=convert_to_ids
-    )
-
-    return attribute_space
+import texttable  # type: ignore
+from openlockagents.OpenLockLearner.causal_classes.DirichletDistribution import \
+    DirichletDistribution
 
 
 class AttributeScope:
@@ -33,8 +13,7 @@ class AttributeScope:
     and the distributions over each causal change indices
     """
 
-    def __init__(self, initial_attributes=None, prior=None):
-        # type/sanity checking
+    def __init__(self, initial_attributes: Optional[List[Tuple[str, int, List]]] = None, prior=None):
         assert_str = "Expected a list of tuples, where first index in tuple is attribute name. Second index is attribute dimensionality. Third index is a list of labels for every dimension"
         assert isinstance(initial_attributes, list), assert_str
         for attribute in initial_attributes:
@@ -44,22 +23,22 @@ class AttributeScope:
             assert isinstance(attribute[2], list), assert_str
             assert attribute[1] == len(attribute[2]), assert_str
 
-        names = []
-        labels = []
+        names: List[str]
+        labels: List[List[str]]
+
         # initialize distributions to be uniform
         if initial_attributes is not None:
             names, dimensionalities, labels = zip(*initial_attributes)
 
         # summary distribution over all attributes
-        self.summary_distributions = dict()
+        self.summary_distributions: Dict[str, DirichletDistribution] = dict()
         # labels for each dimension of distribution
-        self.labels = dict()
+        self.labels: Dict[str, List[str]] = dict()
         # distributions based on effective causal change index; ie. how attributes change with changes in the
-        self.indexed_distributions = []
+        self.indexed_distributions: List[Dict[str, DirichletDistribution]] = []
 
-        for i in range(len(names)):
-            attribute_name = names[i]
-            # start count at 1 (so this can be normalized into a distribution
+        for i, attribute_name in enumerate(names):
+            # start count at 1 (so this can be normalized into a distribution)
             summary_attribute_prior = None
             if prior is not None:
                 # initialize prior over summary distribution
@@ -82,7 +61,10 @@ class AttributeScope:
             )
             self.labels[attribute_name] = labels[i]
 
-    def update_alpha(self, attribute_name, value, index, alpha_increase=1):
+        # logging.debug(f"n_dists={len(self.indexed_distributions)}")
+
+
+    def update_alpha(self, attribute_name: str, value, index: int, alpha_increase=1):
         """
         Adds a frequency of values to the name attribute.
 
@@ -90,6 +72,7 @@ class AttributeScope:
         :param values: vector of values to add to the existing frequency count
         :return: none
         """
+        # logging.debug(f"index={index}, n_dists={len(self.indexed_distributions)}")
         assert_str = "Adding indexed distribution at index {} when largest seen is {}. Max index possible is {}".format(
             index, len(self.indexed_distributions), len(self.indexed_distributions) + 1
         )
@@ -105,6 +88,7 @@ class AttributeScope:
                 self.indexed_distributions[index][name] = DirichletDistribution(
                     len(self.summary_distributions[name].frequency_distribution)
                 )
+            # logging.debug(f"n_dists={len(self.indexed_distributions)}")
 
         self.indexed_distributions[index][attribute_name].update_alpha(
             value_index, alpha_increase=alpha_increase
@@ -122,25 +106,23 @@ class AttributeScope:
         posterior_at_indices = np.zeros((len(attributes_at_indices), 1))
         num_posteriors_computed = 0
 
+        n_attrs = len(attributes_at_indices)
+
+
         # use index distributions for as many as possible, then use summary distribution to estimate posterior of remaining indices
         distributions = []
         if use_indexed_distributions:
-            distributions.extend(self.indexed_distributions)
-        num_distributions = len(distributions)
-        distributions.extend(
-            [
-                self.summary_distributions
-                for _ in range(num_distributions, len(attributes_at_indices))
-            ]
-        )
+            distributions.extend(self.indexed_distributions[:n_attrs])
 
+        n_dists = len(distributions)
+        if n_dists < n_attrs:
+            distributions.extend(
+                [self.summary_distributions for _ in range(n_dists, n_attrs)]
+            )
         # compute node posteriors
-        for i in range(len(distributions)):
-            assert len(distributions) == len(
-                attributes_at_indices
-            ), f"There are {len(distributions)} dists and {len(attributes_at_indices)} indices"
+        for i, distribution in enumerate(distributions):
             posterior_at_indices[i] = self._compute_node_posterior(
-                dist_dict=distributions[i],
+                dist_dict=distribution,
                 attribute_order=attribute_order,
                 attributes=attributes_at_indices[i],
                 action=actions_at_indices[i],
@@ -398,3 +380,25 @@ def create_prior(attribute_scope, scaled=False, scale_min=1, scale_max=10):
         )
     prior["indexed"] = indexed_prior
     return prior
+
+
+def setup_attribute_space(
+    attributes: Dict, convert_to_ids: bool = False, unique_id_manager=None
+) -> AttributeSpace:
+    initial_attributes = list()
+    for key, value in attributes.items():
+        if convert_to_ids:
+            attribute_labels = [
+                unique_id_manager.convert_attribute_to_target_type(
+                    key, value_label, target_type="int"
+                )
+                for value_label in value
+            ]
+        else:
+            attribute_labels = value
+        initial_attributes.append((key, len(attribute_labels), attribute_labels))
+    attribute_space = AttributeSpace(
+        initial_attributes=initial_attributes, using_ids=convert_to_ids
+    )
+
+    return attribute_space

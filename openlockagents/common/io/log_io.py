@@ -6,9 +6,9 @@ import pickle
 import pickle as pkl
 import re
 
-import h5py
-import jsonpickle
-from openlock.settings_trial import NUM_LEVERS_IN_HUMAN_DATA
+import h5py  # type: ignore
+import jsonpickle  # type: ignore
+from openlock.settings_trial import NUM_LEVERS_IN_HUMAN_DATA  # type: ignore
 from openlockagents.Human.common import load_human_config_json
 
 

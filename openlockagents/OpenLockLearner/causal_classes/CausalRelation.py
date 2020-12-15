@@ -2,7 +2,7 @@ from collections import namedtuple
 from enum import Enum
 from typing import Any, NamedTuple, Sequence, Tuple
 
-from openlock.common import Action
+from openlock.common import Action  # type: ignore
 
 
 class CausalRelationType(Enum):
