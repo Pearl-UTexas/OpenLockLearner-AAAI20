@@ -12,38 +12,29 @@ from openlock.envs.openlock_env import OpenLockEnv
 from openlockagents.common.agent import Agent
 from openlockagents.common.common import DEBUGGING
 from openlockagents.OpenLockLearner.causal_classes.BeliefSpace import (
-    AbstractSchemaBeliefSpace,
-    AtomicSchemaBeliefSpace,
-    BottomUpChainBeliefSpace,
-    InstantiatedSchemaBeliefSpace,
-    TopDownChainBeliefSpace,
-)
-from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import (
-    CausalChainStructureSpace,
-)
+    AbstractSchemaBeliefSpace, AtomicSchemaBeliefSpace,
+    BottomUpChainBeliefSpace, InstantiatedSchemaBeliefSpace,
+    TopDownChainBeliefSpace)
+from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import \
+    CausalChainStructureSpace
 from openlockagents.OpenLockLearner.causal_classes.OutcomeSpace import (
-    Outcome,
-    OutcomeSpace,
-)
+    Outcome, OutcomeSpace)
 from openlockagents.OpenLockLearner.causal_classes.SchemaStructureSpace import (
-    AtomicSchemaStructureSpace,
-    InstantiatedSchemaStructureSpace,
-)
+    AtomicSchemaStructureSpace, InstantiatedSchemaStructureSpace)
 from openlockagents.OpenLockLearner.causal_classes.StructureAndBeliefSpaceWrapper import (
     AbstractSchemaStructureAndBeliefWrapper,
     AtomicSchemaStructureAndBeliefWrapper,
     InstantiatedSchemaStructureAndBeliefWrapper,
-    TopDownBottomUpStructureAndBeliefSpaceWrapper,
-)
+    TopDownBottomUpStructureAndBeliefSpaceWrapper)
 from openlockagents.OpenLockLearner.learner.CausalLearner import CausalLearner
-from openlockagents.OpenLockLearner.learner.InterventionSelector import (
-    InterventionSelector,
-)
-from openlockagents.OpenLockLearner.learner.ModelBasedRL import ModelBasedRLAgent
-from openlockagents.OpenLockLearner.util.common import AblationParams, print_message
-from openlockagents.OpenLockLearner.util.util import (
-    generate_solutions_by_trial_causal_relation,
-)
+from openlockagents.OpenLockLearner.learner.InterventionSelector import \
+    InterventionSelector
+from openlockagents.OpenLockLearner.learner.ModelBasedRL import \
+    ModelBasedRLAgent
+from openlockagents.OpenLockLearner.util.common import (AblationParams,
+                                                        print_message)
+from openlockagents.OpenLockLearner.util.util import \
+    generate_solutions_by_trial_causal_relation
 
 
 class OpenLockLearnerAgent(Agent):
@@ -399,7 +390,7 @@ class OpenLockLearnerAgent(Agent):
                     )
                     logging.debug("Update top down beliefs")
                     self.causal_chain_space.update_top_down_beliefs(
-                        self.instantiated_schema_spacec
+                        self.instantiated_schema_space
                     )
                     logging.debug("Assert true chains still in schemas")
                     assert self.instantiated_schema_space.structure_space.verify_chain_assignment_in_schemas(
