@@ -257,7 +257,6 @@ class OpenLockLearnerAgent(Agent):
         trial_selected,
         max_steps_with_no_pruning,
         interventions_predefined=None,
-        use_random_intervention=False,
         chain_idxs_pruned_from_initial_observation=None,
         intervention_mode=None,
     ):
@@ -271,7 +270,6 @@ class OpenLockLearnerAgent(Agent):
         elif intervention_mode == "action":
             self.run_trial_openlock_learner_action_intervention(
                 trial_selected,
-                max_steps_with_no_pruning,
                 chain_idxs_pruned_from_initial_observation=chain_idxs_pruned_from_initial_observation,
             )
         else:
@@ -280,10 +278,7 @@ class OpenLockLearnerAgent(Agent):
             )
 
     def run_trial_openlock_learner_action_intervention(
-        self,
-        trial_selected,
-        max_steps_with_no_pruning,
-        chain_idxs_pruned_from_initial_observation=None,
+        self, trial_selected, chain_idxs_pruned_from_initial_observation=None,
     ):
         self.trial_order.append(trial_selected)
 
@@ -302,6 +297,7 @@ class OpenLockLearnerAgent(Agent):
         causal_chain_idxs: Set[int] = set(
             self.get_causal_chain_idxs_with_positive_belief()[0]
         )
+        logging.info(f"{len(causal_chain_idxs)} total causal chains this trial")
 
         while not trial_finished:
             self.env.reset()
@@ -317,7 +313,7 @@ class OpenLockLearnerAgent(Agent):
 
             sequences_to_prune: List[Tuple[List[Action], List[bool]]] = list()
             while not self.env.determine_attempt_finished():
-                # logging.info("Starting cycle.")
+                logging.info(f"timestep={timestep}")
 
                 # if we provide a list of epsilons from human data, put it here
                 epsilon = (
@@ -326,7 +322,7 @@ class OpenLockLearnerAgent(Agent):
                     else self.epsilon
                 )
 
-                # logging.info(f"Action selection, timestep={timestep}")
+                logging.debug(f"Action selection")
                 if self.epsilon_active and np.random.sample() < epsilon:
                     action = self.model_based_agent.random_action_policy()
                 else:
@@ -341,15 +337,20 @@ class OpenLockLearnerAgent(Agent):
                         first_trial=self.determine_first_trial(),
                         ablation=self.ablation,
                     )
-                    # if action_beliefs is an empty dict, we picked a random action
                     action_beliefs_this_attempt.append(action_beliefs)
+                    # If we couldn't find an action, just repeat the last action.
+                    if action is None:
+                        action = action_sequence[-1]
                 action_sequence.append(action)
-                logging.info(f"action_sequence={action_sequence}")
 
-                # logging.info("Executing action")
+                logging.debug("Executing action")
                 reward, state_prev, state_cur = self.execute_action_intervention(action)
 
                 change_observed.append(state_cur != state_prev)
+
+                logging.debug(
+                    f"action_sequence={action_sequence}, change_observed={change_observed}"
+                )
 
                 if not change_observed[-1]:
                     sequences_to_prune = [
@@ -358,14 +359,14 @@ class OpenLockLearnerAgent(Agent):
                 else:
                     sequences_to_prune = []
 
-                # logging.info("Updating bottom up attribute beliefs")
+                logging.debug("Updating bottom up attribute beliefs")
                 self.update_bottom_up_attribute_beliefs(
                     action, trial_selected, timestep=np.sum(change_observed) - 1
                 )
                 timestep += 1
                 attempt_reward += reward
 
-                # logging.info("Update bottom up causal model")
+                logging.debug("Update bottom up causal model")
                 (
                     _,
                     num_chains_pruned_this_action,
@@ -385,23 +386,24 @@ class OpenLockLearnerAgent(Agent):
                 chain_idxs_pruned_this_trial.update(chain_idxs_pruned)
 
                 causal_chain_idxs -= set(chain_idxs_pruned)
+                logging.info(f"{len(causal_chain_idxs)} chains remaining")
 
-                # logging.info("Asserting true chains have positive belief")
+                logging.debug("Asserting true chains have positive belief")
                 assert (
                     self.verify_true_causal_idxs_have_belief_above_threshold()
                 ), "True causal chain idx had belief drop below 0!"
 
                 # update the top-down model based on which chains were pruned
                 if len(self.instantiated_schema_space.structure_space) > 0:
-                    # logging.info("Schema space update")
+                    logging.debug("Schema space update")
                     self.instantiated_schema_space.update_instantiated_schema_beliefs(
                         chain_idxs_pruned, multiproc=self.multiproc
                     )
-                    # logging.info("Update top down beliefs")
+                    logging.debug("Update top down beliefs")
                     self.causal_chain_space.update_top_down_beliefs(
                         self.instantiated_schema_space, multiproc=self.multiproc
                     )
-                    # logging.info("Assert true chains still in schemas")
+                    logging.debug("Assert true chains still in schemas")
                     assert self.instantiated_schema_space.structure_space.verify_chain_assignment_in_schemas(
                         self.causal_chain_space.structure_space.true_chain_idxs
                     ), "True chains not in instantiated schemas!"
@@ -426,18 +428,17 @@ class OpenLockLearnerAgent(Agent):
                 float(intervention_info_gain)
             )
 
-            # logging.info("Getting num solutions remaining")
+            logging.debug("Getting num solutions remaining")
             prev_num_solutions_remaining = self.env.get_num_solutions_remaining()
 
-            # logging.info("Finishing attempt")
+            logging.debug("Finishing attempt")
             # finish the attempt in the environment
             self.finish_attempt()
 
-            # logging.info("Getting num solutions remaining 2nd time")
+            logging.debug("Getting num solutions remaining 2nd time")
             num_solutions_remaining = self.env.get_num_solutions_remaining()
             # solution found, instantiate schemas
             if prev_num_solutions_remaining != num_solutions_remaining:
-                logging.info(f"Found solution {num_solutions_remaining}")
 
                 self.instantiate_schemas(
                     num_solutions_in_trial=self.env.get_num_solutions(),
@@ -457,12 +458,12 @@ class OpenLockLearnerAgent(Agent):
                     )
                 )
 
-            # logging.info("Finish attempt agent")
+            logging.debug("Finish attempt agent")
             self.finish_attempt_openlock_agent(
                 trial_selected, prev_num_solutions_remaining, attempt_reward,
             )
 
-            # logging.info("Get trial success")
+            logging.debug("Get trial success")
             # TODO(mjedmonds): refactor to find better way to get trial success (and when this value will be available/set in the trial)
             trial_finished = self.env.get_trial_success()
 
@@ -474,7 +475,7 @@ class OpenLockLearnerAgent(Agent):
             if self.env.attempt_count >= self.env.attempt_limit:
                 trial_finished = True
 
-        logging.info("Finish trial")
+        logging.debug("Finish trial")
         self.finish_trial(trial_selected, test_trial=False)
 
     # def run_trial_openlock_learner_attempt_intervention(
@@ -713,12 +714,6 @@ class OpenLockLearnerAgent(Agent):
         else:
             raise TypeError(f"Unexpected action type: {type(action)}, {action}")
 
-        print_message(
-            self.trial_count,
-            self.attempt_count,
-            "Executing action: {}".format(action),
-            self.print_messages,
-        )
         # TODO(joschnei): We should be able to use next_state instead of the outcome stuff below,
         # except I have no idea what the outcome stuff is doing.
         next_state, reward, _, _ = self.env.step(action_env)
@@ -851,7 +846,7 @@ class OpenLockLearnerAgent(Agent):
             n_chains_in_schema=num_solutions_in_trial,
             causal_chain_structure_space=self.causal_chain_space.structure_space,
             excluded_chain_idxs=excluded_chain_idxs,
-            multiproc=multiproc,
+            multiproc=True,
         )
 
         self.instantiated_schema_space.structure_space = instantiated_schemas

@@ -7,19 +7,28 @@ from typing import Optional, Sequence
 import networkx as nx  # type: ignore
 import numpy as np
 from joblib import Parallel, delayed
-from openlockagents.OpenLockLearner.causal_classes import \
-    CausalChainStructureSpace
+from openlockagents.OpenLockLearner.causal_classes import CausalChainStructureSpace
 from openlockagents.OpenLockLearner.causal_classes.BeliefSpace import (
-    AbstractSchemaBeliefSpace, AtomicSchemaBeliefSpace,
-    BottomUpChainBeliefSpace, InstantiatedSchemaBeliefSpace,
-    TopDownChainBeliefSpace)
-from openlockagents.OpenLockLearner.causal_classes.SchemaStructureSpace import \
-    InstantiatedSchemaStructureSpace
+    AbstractSchemaBeliefSpace,
+    AtomicSchemaBeliefSpace,
+    BottomUpChainBeliefSpace,
+    InstantiatedSchemaBeliefSpace,
+    TopDownChainBeliefSpace,
+)
+from openlockagents.OpenLockLearner.causal_classes.SchemaStructureSpace import (
+    InstantiatedSchemaStructureSpace,
+)
 from openlockagents.OpenLockLearner.generator.schema_generator import (
-    UNASSIGNED_CHAIN, generate_instantiation_mappings)
+    UNASSIGNED_CHAIN,
+    generate_instantiation_mappings,
+)
 from openlockagents.OpenLockLearner.util.common import (
-    PARALLEL_MAX_NBYTES, SANITY_CHECK_ELEMENT_LIMIT, generate_slicing_indices,
-    renormalize, verify_valid_probability_distribution)
+    PARALLEL_MAX_NBYTES,
+    SANITY_CHECK_ELEMENT_LIMIT,
+    generate_slicing_indices,
+    renormalize,
+    verify_valid_probability_distribution,
+)
 
 
 def update_bottom_up_beliefs_multiproc(
@@ -214,11 +223,11 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
 
         instantiated_schema_structure_space.schemas = instantiated_schemas
 
-        logging.info(
-            "Instantiating {0} schemas took {1:.2f}s".format(
-                len(instantiated_schema_structure_space), time.time() - t
-            )
-        )
+        # logging.info(
+        #     "Instantiating {0} schemas took {1:.2f}s".format(
+        #         len(instantiated_schema_structure_space), time.time() - t
+        #     )
+        # )
         instantiated_schema_beliefs = np.array(instantiated_schema_beliefs)
 
         # TODO(mjedmonds): does this renormalization make sense? Should we naturally have a normalized probability?
@@ -341,7 +350,12 @@ class InstantiatedSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper
 
 
 class TopDownBottomUpStructureAndBeliefSpaceWrapper:
-    def __init__(self, structures: CausalChainStructureSpace, bottom_up_beliefs: BottomUpChainBeliefSpace, top_down_beliefs: TopDownChainBeliefSpace):
+    def __init__(
+        self,
+        structures: CausalChainStructureSpace,
+        bottom_up_beliefs: BottomUpChainBeliefSpace,
+        top_down_beliefs: TopDownChainBeliefSpace,
+    ):
         assert isinstance(
             bottom_up_beliefs, BottomUpChainBeliefSpace
         ), "Bottom up beliefs expected to be BottomUpChainBeliefSpace"
@@ -398,7 +412,7 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
         # renormalize beliefs
         max_chains = self.bottom_up_belief_space.renormalize_beliefs(
             chain_idxs=self.bottom_up_belief_space.get_idxs_with_belief_above_threshold(),
-            multiproc=multiproc
+            multiproc=multiproc,
         )
 
         if (

@@ -4,7 +4,7 @@ import operator
 import random
 import sys
 from collections import defaultdict
-from typing import Sequence
+from typing import Dict, Optional, Sequence, Tuple
 
 import numpy as np
 from openlock.common import Action
@@ -103,9 +103,6 @@ class ModelBasedRLAgent:
             causal_chain_idx, fill_delays=True
         )
 
-        # NOTE(joschnei): Just added this, computes the index into the causal chain, ignoring
-        # actions that are not part of the chain
-
         t = 0
         for change in change_observed:
             if change and causal_chain_actions[t] is not None:
@@ -125,7 +122,9 @@ class ModelBasedRLAgent:
                 assert chain_posterior > 0.0
                 action_beliefs[node_action] += chain_posterior
             elif t == 0:
-                raise ValueError("First action cannot be none")
+                raise RuntimeError("First action cannot be none")
+        else:
+            raise RuntimeError(f"t={t} >= len(chain)={len(causal_chain_actions)}")
 
         return action_beliefs
 
@@ -143,8 +142,7 @@ class ModelBasedRLAgent:
         change_observed: Sequence[bool],
         first_trial,
         ablation=None,
-        dont_push=False,
-    ):
+    ) -> Tuple[Optional[Action], Dict[Action, float]]:
         """
         Performs a greedy policy action by action, conditioned on the action sequence executed so far
         :param causal_chain_space: CausalChainSpace
@@ -158,12 +156,6 @@ class ModelBasedRLAgent:
         :return: best_action: the optimal action, action_beliefs: the beliefs of each action
         """
         # logging.info("Action selection entry")
-        log_door_chains = (
-            dont_push and len(change_observed) > 0 and change_observed[0] == True
-        )
-
-        if dont_push:
-            logging.debug(f"causal_chain_idxs={causal_chain_idxs}")
 
         # find causal chains that contain this action sequence
         if len(action_sequence) > 0:
@@ -207,7 +199,6 @@ class ModelBasedRLAgent:
                 causal_chain_idx,
                 chain_posterior,
                 change_observed,
-                log_door_chains=log_door_chains,
             )
 
         if not any_chain_posterior_positive:
@@ -223,7 +214,7 @@ class ModelBasedRLAgent:
                 random_chain, fill_delays=True
             )
             action = random_chain_actions[0]
-            return action, {}
+            return None, {}
 
         assert min(action_beliefs.values()) >= 0, "Action beliefs has negative value"
 

@@ -12,11 +12,10 @@ import texttable  # type: ignore
 from openlock.common import Action  # type: ignore
 from openlock.logger_env import ActionLog  # type: ignore
 from openlockagents.common.io.log_io import pretty_write
-from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelation
-from openlockagents.OpenLockLearner.util.common import (
-    ALL_CAUSAL_CHAINS,
-    check_for_duplicates,
-)
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import \
+    CausalRelation
+from openlockagents.OpenLockLearner.util.common import (ALL_CAUSAL_CHAINS,
+                                                        check_for_duplicates)
 
 
 class CausalChainStructureSpace:
@@ -549,7 +548,7 @@ class CausalChainStructureSpace:
         :return: nothing
         """
         t = time.time()
-        logging.info("Setting true causal chains...")
+        # logging.info("Setting true causal chains...")
         self.true_chains = true_chains
         self.true_chain_idxs = []
         for true_chain in self.true_chains:
@@ -564,11 +563,11 @@ class CausalChainStructureSpace:
             len(self.true_chains) == len(self.true_chain_idxs)
             and None not in self.true_chain_idxs
         ), "Could not find all true chain indices in causal chain space"
-        logging.info(
-            "Setting true causal chains took {}s. True causal chains: ".format(
-                time.time() - t
-            )
-        )
+        # logging.info(
+        #     "Setting true causal chains took {}s. True causal chains: ".format(
+        #         time.time() - t
+        #     )
+        # )
         self.pretty_print_causal_chain_idxs(
             self.true_chain_idxs, belief_space, print_messages=self.print_messages
         )
