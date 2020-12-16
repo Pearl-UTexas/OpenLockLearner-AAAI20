@@ -48,7 +48,6 @@ class InterventionSelector:
                 trial_count=trial_count,
                 attempt_count=attempt_count,
                 sample_chains=sample_chains,
-                multiproc=multiproc,
             )
         return intervention, intervention_info_gain
 

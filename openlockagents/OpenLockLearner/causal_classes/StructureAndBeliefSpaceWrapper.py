@@ -65,12 +65,15 @@ def instantiate_schemas_multiproc(
     solutions_executed,
     excluded_chain_idxs,
     n_chains_in_schema,
+    n_cpus: int = 1,
 ):
     slicing_indices = generate_slicing_indices(abstract_schema_space.structure_space)
     instantiated_schemas = []
     instantiated_schema_beliefs = []
     with Parallel(
-        n_jobs=multiprocessing.cpu_count(), verbose=5, max_nbytes=PARALLEL_MAX_NBYTES
+        n_jobs=min(n_cpus, multiprocessing.cpu_count()),
+        verbose=5,
+        max_nbytes=PARALLEL_MAX_NBYTES,
     ) as parallel:
         return_tuples = parallel(
             delayed(abstract_schema_space.instantiate_schemas_common)(
@@ -185,6 +188,7 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
         causal_chain_structure_space,
         excluded_chain_idxs,
         multiproc=False,
+        n_cpus: int = 1,
     ):
         t = time.time()
         instantiated_schema_structure_space = InstantiatedSchemaStructureSpace()
@@ -204,6 +208,7 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
                 solutions_executed=solutions_executed,
                 n_chains_in_schema=n_chains_in_schema,
                 excluded_chain_idxs=excluded_chain_idxs,
+                n_cpus=n_cpus,
             )
         else:
             (
@@ -319,7 +324,7 @@ class AbstractSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper):
 
         # TODO(mjedmonds): we basically expand dimensions of a 2-value probability into n-value distribution - so we need to normalize
         # TODO(mjedmonds): if we had a proper conditional term, we could multiply it to get a valid distribution without normalization
-        self.belief_space.renormalize_beliefs(multiproc=multiproc)
+        self.belief_space.renormalize_beliefs()
 
         assert verify_valid_probability_distribution(
             self.belief_space
@@ -346,7 +351,7 @@ class InstantiatedSchemaStructureAndBeliefWrapper(StructureAndBeliefSpaceWrapper
                     self.belief_space[item_idx] = 0
                     break
         # renormalize
-        self.belief_space.renormalize_beliefs(multiproc=multiproc)
+        self.belief_space.renormalize_beliefs()
 
 
 class TopDownBottomUpStructureAndBeliefSpaceWrapper:
@@ -412,7 +417,6 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
         # renormalize beliefs
         max_chains = self.bottom_up_belief_space.renormalize_beliefs(
             chain_idxs=self.bottom_up_belief_space.get_idxs_with_belief_above_threshold(),
-            multiproc=multiproc,
         )
 
         if (
@@ -503,7 +507,7 @@ class TopDownBottomUpStructureAndBeliefSpaceWrapper:
                     ] += instantiated_schema_space.belief_space[instantiated_schema_idx]
 
         # TODO(mjedmonds): does it make sense to renormalize here?
-        self.top_down_belief_space.renormalize_beliefs(multiproc=multiproc)
+        self.top_down_belief_space.renormalize_beliefs()
 
         assert verify_valid_probability_distribution(
             self.top_down_belief_space

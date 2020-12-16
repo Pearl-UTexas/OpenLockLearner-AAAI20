@@ -107,6 +107,7 @@ def main():
     params["num_agent_runs"] = args.n_replications
     params["src_dir"] = None
     params["print_messages"] = False
+    params["n_cpus"] = args.n_cpus
 
     logging.info(params)
 
@@ -167,6 +168,7 @@ def main():
         agent.training_trial_order = possible_trials
         logging.info("Training agent")
         for trial_name in possible_trials:
+            agent.multiproc = "4" in params["train_scenario_name"]
             (
                 trial_selected,
                 chain_idxs_pruned_from_initial_observation,
@@ -186,8 +188,11 @@ def main():
             )
 
         # testing
-        if params["test_scenario_name"] in ("CE4, CC4, CE4D, CC4D"):
+        if params["test_scenario_name"] in ("CE4", "CC4", "CE4D", "CC4D"):
             logging.info("Testing agent")
+
+            agent.multiproc = True
+
             (
                 trial_selected,
                 chain_idxs_pruned_from_initial_observation,

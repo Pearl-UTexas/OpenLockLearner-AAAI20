@@ -64,6 +64,9 @@ def parse_arguments():
     parser.add_argument(
         "--n-replications", type=int, default=40,
     )
+    parser.add_argument(
+        "--n-cpus", type=int, default=1, help="Number of cpus to use with joblib."
+    )
     args = parser.parse_args()
     return args
 

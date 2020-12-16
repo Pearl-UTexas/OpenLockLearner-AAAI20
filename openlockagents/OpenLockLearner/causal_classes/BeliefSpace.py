@@ -143,9 +143,7 @@ class BeliefSpace:
         """
 
         # compute normalization factor
-        normalization_factor = self.sum_beliefs(
-            chain_idxs=chain_idxs, multiproc=multiproc
-        )
+        normalization_factor = self.sum_beliefs(chain_idxs=chain_idxs,)
         assert (
             normalization_factor != 0
         ), "Normalization factor is zero: no chains with positive belief"
@@ -171,7 +169,7 @@ class BeliefSpace:
                 num_elements_with_belief_above_threshold,
             ) = renormalize_beliefs_multiproc(self, normalization_factor)
 
-        self.compute_num_idx_with_belief_above_threshold(multiproc=multiproc)
+        self.compute_num_idx_with_belief_above_threshold()
 
         return max_elements
 
@@ -217,7 +215,7 @@ class BeliefSpace:
             ending_idx,
         )
 
-    def compute_num_idx_with_belief_above_threshold(self, multiproc=True):
+    def compute_num_idx_with_belief_above_threshold(self, multiproc=False):
 
         if not multiproc:
             num_idxs_with_belief_above_threshold = self.compute_num_idxs_with_belief_above_threshold_common(
@@ -302,7 +300,7 @@ class BeliefSpace:
 
     # set uniform prior among all chains with a belief above a specified threshold
     def set_uniform_belief_for_ele_with_belief_above_threshold(
-        self, threshold=0.0, multiproc=True
+        self, threshold=0.0, multiproc=False
     ):
         start_time = time.time()
         # logging.info(
@@ -310,7 +308,7 @@ class BeliefSpace:
         #         threshold
         #     )
         # )
-        self.compute_num_idx_with_belief_above_threshold(multiproc=multiproc)
+        self.compute_num_idx_with_belief_above_threshold()
         assert_str = "No indices with belief above {}! Cannot set uniform belief".format(
             self.belief_threshold
         )

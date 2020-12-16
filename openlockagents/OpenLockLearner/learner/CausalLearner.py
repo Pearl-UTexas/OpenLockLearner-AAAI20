@@ -4,10 +4,14 @@ from typing import Sequence, Tuple
 from openlock.common import Action
 from openlock.envs.openlock_env import OpenLockEnv
 from openlockagents.common.common import DEBUGGING
-from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import \
-    CausalChainStructureSpace
+from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import (
+    CausalChainStructureSpace,
+)
 from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
-    CausalObservation, CausalRelation, CausalRelationType)
+    CausalObservation,
+    CausalRelation,
+    CausalRelationType,
+)
 from openlockagents.OpenLockLearner.learner.ChainPruner import ChainPruner
 from openlockagents.OpenLockLearner.util.common import print_message
 
@@ -29,7 +33,9 @@ class CausalLearner:
         prune_inconsitent_chains=True,
         multiproc=False,
     ):
-        chain_idxs_consistent = causal_chain_space.bottom_up_belief_space.get_idxs_with_belief_above_threshold()
+        chain_idxs_consistent = (
+            causal_chain_space.bottom_up_belief_space.get_idxs_with_belief_above_threshold()
+        )
         chain_idxs_removed = []
 
         prev_num_chains_with_belief_above_threshold = (
@@ -48,10 +54,7 @@ class CausalLearner:
             )
 
         map_chains = causal_chain_space.update_bottom_up_beliefs(
-            env.attribute_order,
-            trial_name,
-            multiproc=multiproc,
-            chain_idxs=chain_idxs_consistent,
+            env.attribute_order, trial_name, chain_idxs=chain_idxs_consistent,
         )
 
         # the remainder of this function is bookkeeping

@@ -73,6 +73,7 @@ class OpenLockLearnerAgent(Agent):
         causal_chain_structure_space.print_messages = self.print_messages
 
         self.multiproc: bool = params["multiproc"]
+        self.n_cpus: int = params["n_cpus"]
         self.deterministic: bool = params["deterministic"]
         self.chain_sample_size: int = params["chain_sample_size"]
         self.lambda_multiplier: float = params["lambda_multiplier"]
@@ -228,13 +229,11 @@ class OpenLockLearnerAgent(Agent):
             self.env,
             self.trial_count,
             self.attempt_count,
-            multiproc=self.multiproc,
             using_ids=self.causal_chain_space.structure_space.using_ids,
         )
         # set uniform belief for chains that survived initial pruning
         self.causal_chain_space.bottom_up_belief_space.set_uniform_belief_for_ele_with_belief_above_threshold(
             self.causal_chain_space.bottom_up_belief_space.belief_threshold,
-            multiproc=self.multiproc,
         )
         assert (
             self.verify_true_causal_idxs_have_belief_above_threshold()
@@ -247,7 +246,7 @@ class OpenLockLearnerAgent(Agent):
         # TODO(mjedmonds): initial chain beliefs based on attribute beliefs
         # initialize beliefs based on the attribute beliefs, p(G|T)
         self.causal_chain_space.update_bottom_up_beliefs(
-            self.env.attribute_order, trial_selected, multiproc=self.multiproc
+            self.env.attribute_order, trial_selected,
         )
 
         return trial_selected, chain_idxs_pruned_from_initial_observation
@@ -380,7 +379,6 @@ class OpenLockLearnerAgent(Agent):
                     trial_count=self.trial_count,
                     attempt_count=self.attempt_count,
                     prune_inconsitent_chains=not self.ablation.PRUNING,
-                    multiproc=self.multiproc,
                 )
                 num_chains_pruned_this_attempt += num_chains_pruned_this_action
                 chain_idxs_pruned_this_trial.update(chain_idxs_pruned)
@@ -397,11 +395,11 @@ class OpenLockLearnerAgent(Agent):
                 if len(self.instantiated_schema_space.structure_space) > 0:
                     logging.debug("Schema space update")
                     self.instantiated_schema_space.update_instantiated_schema_beliefs(
-                        chain_idxs_pruned, multiproc=self.multiproc
+                        chain_idxs_pruned
                     )
                     logging.debug("Update top down beliefs")
                     self.causal_chain_space.update_top_down_beliefs(
-                        self.instantiated_schema_space, multiproc=self.multiproc
+                        self.instantiated_schema_spacec
                     )
                     logging.debug("Assert true chains still in schemas")
                     assert self.instantiated_schema_space.structure_space.verify_chain_assignment_in_schemas(
@@ -448,6 +446,7 @@ class OpenLockLearnerAgent(Agent):
                     excluded_chain_idxs=chain_idxs_pruned_this_trial,
                     num_solutions_remaining=num_solutions_remaining,
                     multiproc=self.multiproc,
+                    n_cpus=self.n_cpus,
                 )
 
             # Remove all chains consistent with a successful action sequence from consideration
@@ -827,7 +826,8 @@ class OpenLockLearnerAgent(Agent):
         solution_change_observed,
         excluded_chain_idxs,
         num_solutions_remaining,
-        multiproc=True,
+        multiproc: bool = True,
+        n_cpus: int = 1,
     ):
         if num_solutions_remaining <= 0:
             return
@@ -846,7 +846,8 @@ class OpenLockLearnerAgent(Agent):
             n_chains_in_schema=num_solutions_in_trial,
             causal_chain_structure_space=self.causal_chain_space.structure_space,
             excluded_chain_idxs=excluded_chain_idxs,
-            multiproc=True,
+            multiproc=multiproc,
+            n_cpus=n_cpus,
         )
 
         self.instantiated_schema_space.structure_space = instantiated_schemas
@@ -854,14 +855,10 @@ class OpenLockLearnerAgent(Agent):
             instantiated_schema_beliefs
         )
 
-        self.instantiated_schema_space.belief_space.renormalize_beliefs(
-            multiproc=self.multiproc
-        )
+        self.instantiated_schema_space.belief_space.renormalize_beliefs()
 
         # update the top-down beliefs
-        self.causal_chain_space.update_top_down_beliefs(
-            self.instantiated_schema_space, multiproc=multiproc
-        )
+        self.causal_chain_space.update_top_down_beliefs(self.instantiated_schema_space,)
 
         # verify true assignment is in schema space
         assert self.instantiated_schema_space.structure_space.verify_chain_assignment_in_schemas(
