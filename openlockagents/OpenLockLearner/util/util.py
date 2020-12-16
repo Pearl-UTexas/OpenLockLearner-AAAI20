@@ -1,5 +1,7 @@
 import logging
+from itertools import product
 from multiprocessing import Value
+from typing import List, Optional, Sequence
 
 from openlock.common import ENTITY_STATES, Action
 from openlock.settings_scenario import select_scenario
@@ -8,6 +10,10 @@ from openlockagents.OpenLockLearner.causal_classes.CausalChain import CausalChai
 from openlockagents.OpenLockLearner.causal_classes.CausalRelation import (
     CausalRelation,
     CausalRelationType,
+)
+from openlockagents.OpenLockLearner.causal_classes.CausalRelationSpace import (
+    ACTIONS,
+    POSITIONS,
 )
 from openlockagents.OpenLockLearner.util.common import GRAPH_INT_TYPE
 
@@ -72,6 +78,21 @@ def get_one_of(object, attrs):
         if out is not None:
             return out
     raise ValueError("None of the attrs in object")
+
+
+def expand_wildcards(traj: Sequence[Optional[Action]]) -> Sequence[Sequence[Action]]:
+    actions = [
+        Action(name=action, obj=obj, params={})
+        for action, obj in product(ACTIONS, POSITIONS)
+    ]
+    actions.append(Action(name="push", obj="door", params={}))
+    trajs: List[List[Action]] = [[]]
+    for given_action in traj:
+        if given_action is None:
+            trajs = [traj + [action] for traj in trajs for action in actions]
+        else:
+            trajs = [traj + [given_action] for traj in trajs]
+    return trajs
 
 
 def generate_solutions_by_trial_causal_relation(scenario_name, trial_name):

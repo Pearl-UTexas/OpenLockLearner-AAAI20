@@ -3,7 +3,7 @@ import logging
 import math
 import random
 import time
-from typing import Any, Dict, List, Sequence, Tuple, Union
+from typing import Any, Dict, List, Sequence, Set, Tuple, Union
 
 import numpy as np
 import texttable  # type: ignore
@@ -12,29 +12,38 @@ from openlock.envs.openlock_env import OpenLockEnv
 from openlockagents.common.agent import Agent
 from openlockagents.common.common import DEBUGGING
 from openlockagents.OpenLockLearner.causal_classes.BeliefSpace import (
-    AbstractSchemaBeliefSpace, AtomicSchemaBeliefSpace,
-    BottomUpChainBeliefSpace, InstantiatedSchemaBeliefSpace,
-    TopDownChainBeliefSpace)
-from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import \
-    CausalChainStructureSpace
+    AbstractSchemaBeliefSpace,
+    AtomicSchemaBeliefSpace,
+    BottomUpChainBeliefSpace,
+    InstantiatedSchemaBeliefSpace,
+    TopDownChainBeliefSpace,
+)
+from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import (
+    CausalChainStructureSpace,
+)
 from openlockagents.OpenLockLearner.causal_classes.OutcomeSpace import (
-    Outcome, OutcomeSpace)
+    Outcome,
+    OutcomeSpace,
+)
 from openlockagents.OpenLockLearner.causal_classes.SchemaStructureSpace import (
-    AtomicSchemaStructureSpace, InstantiatedSchemaStructureSpace)
+    AtomicSchemaStructureSpace,
+    InstantiatedSchemaStructureSpace,
+)
 from openlockagents.OpenLockLearner.causal_classes.StructureAndBeliefSpaceWrapper import (
     AbstractSchemaStructureAndBeliefWrapper,
     AtomicSchemaStructureAndBeliefWrapper,
     InstantiatedSchemaStructureAndBeliefWrapper,
-    TopDownBottomUpStructureAndBeliefSpaceWrapper)
+    TopDownBottomUpStructureAndBeliefSpaceWrapper,
+)
 from openlockagents.OpenLockLearner.learner.CausalLearner import CausalLearner
-from openlockagents.OpenLockLearner.learner.InterventionSelector import \
-    InterventionSelector
-from openlockagents.OpenLockLearner.learner.ModelBasedRL import \
-    ModelBasedRLAgent
-from openlockagents.OpenLockLearner.util.common import (AblationParams,
-                                                        print_message)
-from openlockagents.OpenLockLearner.util.util import \
-    generate_solutions_by_trial_causal_relation
+from openlockagents.OpenLockLearner.learner.InterventionSelector import (
+    InterventionSelector,
+)
+from openlockagents.OpenLockLearner.learner.ModelBasedRL import ModelBasedRLAgent
+from openlockagents.OpenLockLearner.util.common import AblationParams, print_message
+from openlockagents.OpenLockLearner.util.util import (
+    generate_solutions_by_trial_causal_relation,
+)
 
 
 class OpenLockLearnerAgent(Agent):
@@ -287,7 +296,12 @@ class OpenLockLearnerAgent(Agent):
             else set()
         )
 
-        dont_push = False
+        # This list contains all the chains we might want to select an action from
+        # This includes all the chains with positive belief that aren't solutions that have already
+        # been tried
+        causal_chain_idxs: Set[int] = set(
+            self.get_causal_chain_idxs_with_positive_belief()[0]
+        )
 
         while not trial_finished:
             self.env.reset()
@@ -303,11 +317,7 @@ class OpenLockLearnerAgent(Agent):
 
             sequences_to_prune: List[Tuple[List[Action], List[bool]]] = list()
             while not self.env.determine_attempt_finished():
-                (
-                    chain_idxs_with_positive_belief,
-                    _,
-                    _,
-                ) = self.get_causal_chain_idxs_with_positive_belief()
+                # logging.info("Starting cycle.")
 
                 # if we provide a list of epsilons from human data, put it here
                 epsilon = (
@@ -316,6 +326,7 @@ class OpenLockLearnerAgent(Agent):
                     else self.epsilon
                 )
 
+                # logging.info(f"Action selection, timestep={timestep}")
                 if self.epsilon_active and np.random.sample() < epsilon:
                     action = self.model_based_agent.random_action_policy()
                 else:
@@ -324,31 +335,21 @@ class OpenLockLearnerAgent(Agent):
                         action_beliefs,
                     ) = self.model_based_agent.greedy_action_policy(
                         causal_chain_space=self.causal_chain_space,
-                        causal_chain_idxs=chain_idxs_with_positive_belief,
-                        timestep=timestep,
+                        causal_chain_idxs=causal_chain_idxs,
                         action_sequence=action_sequence,
                         change_observed=change_observed,
-                        interventions_executed=self.interventions_per_attempt[
-                            self.current_trial_name
-                        ],
                         first_trial=self.determine_first_trial(),
                         ablation=self.ablation,
-                        dont_push=dont_push,
                     )
                     # if action_beliefs is an empty dict, we picked a random action
                     action_beliefs_this_attempt.append(action_beliefs)
                 action_sequence.append(action)
+                logging.info(f"action_sequence={action_sequence}")
 
+                # logging.info("Executing action")
                 reward, state_prev, state_cur = self.execute_action_intervention(action)
 
                 change_observed.append(state_cur != state_prev)
-
-                if (
-                    change_observed == [True, False, False]
-                    and str(action_sequence[2]) == "push_door"
-                ):
-                    dont_push = True
-                    logging.debug(f"dont_push=True")
 
                 if not change_observed[-1]:
                     sequences_to_prune = [
@@ -357,12 +358,14 @@ class OpenLockLearnerAgent(Agent):
                 else:
                     sequences_to_prune = []
 
+                # logging.info("Updating bottom up attribute beliefs")
                 self.update_bottom_up_attribute_beliefs(
                     action, trial_selected, timestep=np.sum(change_observed) - 1
                 )
                 timestep += 1
                 attempt_reward += reward
 
+                # logging.info("Update bottom up causal model")
                 (
                     _,
                     num_chains_pruned_this_action,
@@ -381,26 +384,36 @@ class OpenLockLearnerAgent(Agent):
                 num_chains_pruned_this_attempt += num_chains_pruned_this_action
                 chain_idxs_pruned_this_trial.update(chain_idxs_pruned)
 
+                causal_chain_idxs -= set(chain_idxs_pruned)
+
+                # logging.info("Asserting true chains have positive belief")
                 assert (
                     self.verify_true_causal_idxs_have_belief_above_threshold()
                 ), "True causal chain idx had belief drop below 0!"
 
                 # update the top-down model based on which chains were pruned
                 if len(self.instantiated_schema_space.structure_space) > 0:
+                    # logging.info("Schema space update")
                     self.instantiated_schema_space.update_instantiated_schema_beliefs(
                         chain_idxs_pruned, multiproc=self.multiproc
                     )
+                    # logging.info("Update top down beliefs")
                     self.causal_chain_space.update_top_down_beliefs(
                         self.instantiated_schema_space, multiproc=self.multiproc
                     )
+                    # logging.info("Assert true chains still in schemas")
                     assert self.instantiated_schema_space.structure_space.verify_chain_assignment_in_schemas(
                         self.causal_chain_space.structure_space.true_chain_idxs
                     ), "True chains not in instantiated schemas!"
 
-            logging.debug(f"actions={action_sequence}")
-
             # convert to tuple for hashability
             action_sequence = tuple(action_sequence)
+
+            if (
+                action_sequence
+                in self.interventions_per_attempt[self.current_trial_name]
+            ):
+                logging.warning(f"Action sequence={action_sequence} in history")
 
             # decay epsilon
             if self.epsilon_active:
@@ -413,14 +426,19 @@ class OpenLockLearnerAgent(Agent):
                 float(intervention_info_gain)
             )
 
+            # logging.info("Getting num solutions remaining")
             prev_num_solutions_remaining = self.env.get_num_solutions_remaining()
 
+            # logging.info("Finishing attempt")
             # finish the attempt in the environment
             self.finish_attempt()
 
+            # logging.info("Getting num solutions remaining 2nd time")
             num_solutions_remaining = self.env.get_num_solutions_remaining()
             # solution found, instantiate schemas
             if prev_num_solutions_remaining != num_solutions_remaining:
+                logging.info(f"Found solution {num_solutions_remaining}")
+
                 self.instantiate_schemas(
                     num_solutions_in_trial=self.env.get_num_solutions(),
                     solution_action_sequence=action_sequence,
@@ -431,10 +449,20 @@ class OpenLockLearnerAgent(Agent):
                     multiproc=self.multiproc,
                 )
 
+            # Remove all chains consistent with a successful action sequence from consideration
+            if self.env.cur_trial.attempt_seq[-1].success:
+                causal_chain_idxs -= set(
+                    self.causal_chain_space.structure_space.get_chain_idxs_from_actions(
+                        action_sequence, change_observed
+                    )
+                )
+
+            # logging.info("Finish attempt agent")
             self.finish_attempt_openlock_agent(
                 trial_selected, prev_num_solutions_remaining, attempt_reward,
             )
 
+            # logging.info("Get trial success")
             # TODO(mjedmonds): refactor to find better way to get trial success (and when this value will be available/set in the trial)
             trial_finished = self.env.get_trial_success()
 
@@ -442,232 +470,220 @@ class OpenLockLearnerAgent(Agent):
                 num_steps_since_last_pruning += 1
             else:
                 num_steps_since_last_pruning = 0
-
-            if (
-                num_steps_since_last_pruning > max_steps_with_no_pruning
-                and not self.ablation.PRUNING
-            ):
-                print_message(
-                    self.trial_count,
-                    self.attempt_count,
-                    "Exiting trial due to no chains pruned in {} steps".format(
-                        num_steps_since_last_pruning
-                    ),
-                    self.print_messages,
-                )
-                trial_finished = True
 
             if self.env.attempt_count >= self.env.attempt_limit:
                 trial_finished = True
 
+        logging.info("Finish trial")
         self.finish_trial(trial_selected, test_trial=False)
 
-    def run_trial_openlock_learner_attempt_intervention(
-        self,
-        trial_selected,
-        max_steps_with_no_pruning,
-        interventions_predefined=None,
-        use_random_intervention=False,
-        chain_idxs_pruned_from_initial_observation=None,
-    ):
-        self.trial_order.append(trial_selected)
+    # def run_trial_openlock_learner_attempt_intervention(
+    #     self,
+    #     trial_selected,
+    #     max_steps_with_no_pruning,
+    #     interventions_predefined=None,
+    #     use_random_intervention=False,
+    #     chain_idxs_pruned_from_initial_observation=None,
+    # ):
+    #     self.trial_order.append(trial_selected)
 
-        num_steps_since_last_pruning = 0
-        trial_finished = False
-        completed_solution_idxs = []
-        chain_idxs_pruned_across_all_attempts = (
-            chain_idxs_pruned_from_initial_observation
-            if chain_idxs_pruned_from_initial_observation is not None
-            else set()
-        )
-        intervention_idxs_executed_this_trial = set()
-        # loop for attempts in this trial
-        while not trial_finished:
-            start_time = time.time()
-            self.env.reset()
-            causal_change_idx = 0
+    #     num_steps_since_last_pruning = 0
+    #     trial_finished = False
+    #     completed_solution_idxs = []
+    #     chain_idxs_pruned_across_all_attempts = (
+    #         chain_idxs_pruned_from_initial_observation
+    #         if chain_idxs_pruned_from_initial_observation is not None
+    #         else set()
+    #     )
+    #     intervention_idxs_executed_this_trial = set()
+    #     # loop for attempts in this trial
+    #     while not trial_finished:
+    #         start_time = time.time()
+    #         self.env.reset()
+    #         causal_change_idx = 0
 
-            causal_chain_idxs_with_positive_belief = (
-                self.get_causal_chain_idxs_with_positive_belief()
-            )
+    #         causal_chain_idxs_with_positive_belief = (
+    #             self.get_causal_chain_idxs_with_positive_belief()
+    #         )
 
-            e = np.random.sample()
-            # if we provide a list of epsilons from human data, put it here
-            if self.epsilon_ratios is not None:
-                epsilon = self.epsilon_ratios[self.trial_count - 1]
-            else:
-                epsilon = self.epsilon
-            # random policy
-            if self.epsilon_active and e < epsilon:
-                intervention_chain_idx = self.model_based_agent.random_chain_policy(
-                    causal_chain_idxs_with_positive_belief
-                )
-            # greedy policy
-            else:
-                intervention_chain_idx = self.model_based_agent.greedy_chain_policy(
-                    causal_chain_space=self.causal_chain_space,
-                    causal_chain_idxs=causal_chain_idxs_with_positive_belief,
-                    intervention_idxs_executed=self.intervention_chain_idxs_per_attempt[
-                        self.current_trial_name
-                    ],
-                    interventions_executed=self.interventions_per_attempt[
-                        self.current_trial_name
-                    ],
-                    first_agent_trial=self.determine_first_trial(),
-                    ablation=self.ablation,
-                )
-                assert (
-                    intervention_chain_idx not in intervention_idxs_executed_this_trial
-                ), "Intervention index already selected, should never select the same index twice"
+    #         e = np.random.sample()
+    #         # if we provide a list of epsilons from human data, put it here
+    #         if self.epsilon_ratios is not None:
+    #             epsilon = self.epsilon_ratios[self.trial_count - 1]
+    #         else:
+    #             epsilon = self.epsilon
+    #         # random policy
+    #         if self.epsilon_active and e < epsilon:
+    #             intervention_chain_idx = self.model_based_agent.random_chain_policy(
+    #                 causal_chain_idxs_with_positive_belief
+    #             )
+    #         # greedy policy
+    #         else:
+    #             intervention_chain_idx = self.model_based_agent.greedy_chain_policy(
+    #                 causal_chain_space=self.causal_chain_space,
+    #                 causal_chain_idxs=causal_chain_idxs_with_positive_belief,
+    #                 intervention_idxs_executed=self.intervention_chain_idxs_per_attempt[
+    #                     self.current_trial_name
+    #                 ],
+    #                 interventions_executed=self.interventions_per_attempt[
+    #                     self.current_trial_name
+    #                 ],
+    #                 first_agent_trial=self.determine_first_trial(),
+    #                 ablation=self.ablation,
+    #             )
+    #             assert (
+    #                 intervention_chain_idx not in intervention_idxs_executed_this_trial
+    #             ), "Intervention index already selected, should never select the same index twice"
 
-            # decay epsilon
-            if self.epsilon_active:
-                self.epsilon = self.epsilon * self.epsilon_decay
+    #         # decay epsilon
+    #         if self.epsilon_active:
+    #             self.epsilon = self.epsilon * self.epsilon_decay
 
-            intervention_idxs_executed_this_trial.add(intervention_chain_idx)
-            intervention = self.causal_chain_space.structure_space.get_actions(
-                intervention_chain_idx
-            )
-            intervention_info_gain = 0
+    #         intervention_idxs_executed_this_trial.add(intervention_chain_idx)
+    #         intervention = self.causal_chain_space.structure_space.get_actions(
+    #             intervention_chain_idx
+    #         )
+    #         intervention_info_gain = 0
 
-            # terminating codition; we have exhaustively explored remaining causal chain space
-            if intervention is None:
-                self.print_complete_exploration_message(
-                    causal_chain_idxs_with_positive_belief
-                )
-                break
+    #         # terminating codition; we have exhaustively explored remaining causal chain space
+    #         if intervention is None:
+    #             self.print_complete_exploration_message(
+    #                 causal_chain_idxs_with_positive_belief
+    #             )
+    #             break
 
-            self.intervention_chain_idxs_per_attempt[self.current_trial_name].append(
-                intervention_chain_idx
-            )
-            self.interventions_per_attempt[self.current_trial_name].append(intervention)
-            self.information_gains_per_attempt[self.current_trial_name].append(
-                float(intervention_info_gain)
-            )
+    #         self.intervention_chain_idxs_per_attempt[self.current_trial_name].append(
+    #             intervention_chain_idx
+    #         )
+    #         self.interventions_per_attempt[self.current_trial_name].append(intervention)
+    #         self.information_gains_per_attempt[self.current_trial_name].append(
+    #             float(intervention_info_gain)
+    #         )
 
-            if DEBUGGING:
-                print_message(
-                    self.trial_count,
-                    self.attempt_count,
-                    "Optimal intervention is {} with info gain {:0.4f}. Took {:0.6f} seconds".format(
-                        intervention, intervention_info_gain, time.time() - start_time
-                    ),
-                    self.print_messages,
-                )
+    #         if DEBUGGING:
+    #             print_message(
+    #                 self.trial_count,
+    #                 self.attempt_count,
+    #                 "Optimal intervention is {} with info gain {:0.4f}. Took {:0.6f} seconds".format(
+    #                     intervention, intervention_info_gain, time.time() - start_time
+    #                 ),
+    #                 self.print_messages,
+    #             )
 
-            print_message(
-                self.trial_count,
-                self.attempt_count,
-                "Intervention selection took {:0.6f}s and selected intervention: {}".format(
-                    time.time() - start_time, intervention
-                ),
-                self.print_messages,
-            )
+    #         print_message(
+    #             self.trial_count,
+    #             self.attempt_count,
+    #             "Intervention selection took {:0.6f}s and selected intervention: {}".format(
+    #                 time.time() - start_time, intervention
+    #             ),
+    #             self.print_messages,
+    #         )
 
-            prev_num_solutions_remaining = self.env.get_num_solutions_remaining()
+    #         prev_num_solutions_remaining = self.env.get_num_solutions_remaining()
 
-            (
-                intervention_outcomes,
-                intervention_reward,
-                causal_change_idx,
-            ) = self.execute_attempt_intervention(
-                intervention, trial_selected, causal_change_idx
-            )
-            causal_observations = self.causal_learner.create_causal_observations(
-                env=self.env,
-                action_sequence=intervention,
-                intervention_outcomes=intervention_outcomes,
-                trial_count=self.trial_count,
-                attempt_count=self.attempt_count,
-            )
-            attempt_reward = intervention_reward
-            # finish the attempt in the environment
-            self.finish_attempt()
+    #         (
+    #             intervention_outcomes,
+    #             intervention_reward,
+    #             causal_change_idx,
+    #         ) = self.execute_attempt_intervention(
+    #             intervention, trial_selected, causal_change_idx
+    #         )
+    #         causal_observations = self.causal_learner.create_causal_observations(
+    #             env=self.env,
+    #             action_sequence=intervention,
+    #             intervention_outcomes=intervention_outcomes,
+    #             trial_count=self.trial_count,
+    #             attempt_count=self.attempt_count,
+    #         )
+    #         attempt_reward = intervention_reward
+    #         # finish the attempt in the environment
+    #         self.finish_attempt()
 
-            if self.print_messages:
-                logging.info("CAUSAL OBSERVATION:")
-                self.causal_chain_space.structure_space.pretty_print_causal_observations(
-                    causal_observations, print_messages=self.print_messages
-                )
+    #         if self.print_messages:
+    #             logging.info("CAUSAL OBSERVATION:")
+    #             self.causal_chain_space.structure_space.pretty_print_causal_observations(
+    #                 causal_observations, print_messages=self.print_messages
+    #             )
 
-            num_solutions_remaining = self.env.get_num_solutions_remaining()
-            # solution found, instantiate schemas
-            if prev_num_solutions_remaining != num_solutions_remaining:
-                completed_solution_idxs = self.process_solution(
-                    causal_observations=causal_observations,
-                    completed_solution_idxs=completed_solution_idxs,
-                    solution_action_sequence=intervention,
-                )
-                self.instantiate_schemas(
-                    num_solutions_in_trial=self.env.get_num_solutions(),
-                    completed_solutions=completed_solution_idxs,
-                    exclude_chain_idxs=chain_idxs_pruned_across_all_attempts,
-                    num_solutions_remaining=num_solutions_remaining,
-                    multiproc=self.multiproc,
-                )
+    #         num_solutions_remaining = self.env.get_num_solutions_remaining()
+    #         # solution found, instantiate schemas
+    #         if prev_num_solutions_remaining != num_solutions_remaining:
+    #             logging.info(f"Found solution {num_solutions_remaining}")
+    #             completed_solution_idxs = self.process_solution(
+    #                 causal_observations=causal_observations,
+    #                 completed_solution_idxs=completed_solution_idxs,
+    #                 solution_action_sequence=intervention,
+    #             )
+    #             self.instantiate_schemas(
+    #                 num_solutions_in_trial=self.env.get_num_solutions(),
+    #                 completed_solutions=completed_solution_idxs,
+    #                 exclude_chain_idxs=chain_idxs_pruned_across_all_attempts,
+    #                 num_solutions_remaining=num_solutions_remaining,
+    #                 multiproc=self.multiproc,
+    #             )
 
-            # update beliefs, uses self's log to get executed interventions/outcomes among ALL chains with with positive belief (even those below threshold)
-            (
-                _,
-                num_chains_pruned_this_attempt,
-                _,
-                chain_idxs_pruned,
-            ) = self.causal_learner.update_bottom_up_causal_model(
-                env=self.env,
-                causal_chain_space=self.causal_chain_space,
-                causal_chain_idxs=causal_chain_idxs_with_positive_belief,
-                causal_observations=causal_observations,
-                trial_name=trial_selected,
-                trial_count=self.trial_count,
-                attempt_count=self.attempt_count,
-                prune_inconsitent_chains=not self.ablation.PRUNING,
-                multiproc=self.multiproc,
-            )
-            chain_idxs_pruned_across_all_attempts.update(chain_idxs_pruned)
+    #         # update beliefs, uses self's log to get executed interventions/outcomes among ALL chains with with positive belief (even those below threshold)
+    #         (
+    #             _,
+    #             num_chains_pruned_this_attempt,
+    #             _,
+    #             chain_idxs_pruned,
+    #         ) = self.causal_learner.update_bottom_up_causal_model(
+    #             env=self.env,
+    #             causal_chain_space=self.causal_chain_space,
+    #             causal_chain_idxs=causal_chain_idxs_with_positive_belief,
+    #             causal_observations=causal_observations,
+    #             trial_name=trial_selected,
+    #             trial_count=self.trial_count,
+    #             attempt_count=self.attempt_count,
+    #             prune_inconsitent_chains=not self.ablation.PRUNING,
+    #             multiproc=self.multiproc,
+    #         )
+    #         chain_idxs_pruned_across_all_attempts.update(chain_idxs_pruned)
 
-            assert (
-                self.verify_true_causal_idxs_have_belief_above_threshold()
-            ), "True causal chain idx had belief drop below 0!"
+    #         assert (
+    #             self.verify_true_causal_idxs_have_belief_above_threshold()
+    #         ), "True causal chain idx had belief drop below 0!"
 
-            # update the top-down model based on which chains were pruned
-            if len(self.instantiated_schema_space.structure_space) > 0:
-                self.instantiated_schema_space.update_instantiated_schema_beliefs(
-                    chain_idxs_pruned, multiproc=self.multiproc
-                )
-                self.causal_chain_space.update_top_down_beliefs(
-                    self.instantiated_schema_space, multiproc=self.multiproc
-                )
-                assert self.instantiated_schema_space.structure_space.verify_chain_assignment_in_schemas(
-                    self.causal_chain_space.structure_space.true_chain_idxs
-                ), "True chains not in instantiated schemas!"
+    #         # update the top-down model based on which chains were pruned
+    #         if len(self.instantiated_schema_space.structure_space) > 0:
+    #             self.instantiated_schema_space.update_instantiated_schema_beliefs(
+    #                 chain_idxs_pruned, multiproc=self.multiproc
+    #             )
+    #             self.causal_chain_space.update_top_down_beliefs(
+    #                 self.instantiated_schema_space, multiproc=self.multiproc
+    #             )
+    #             assert self.instantiated_schema_space.structure_space.verify_chain_assignment_in_schemas(
+    #                 self.causal_chain_space.structure_space.true_chain_idxs
+    #             ), "True chains not in instantiated schemas!"
 
-            self.finish_attempt_openlock_agent(
-                trial_selected, prev_num_solutions_remaining, attempt_reward,
-            )
+    #         self.finish_attempt_openlock_agent(
+    #             trial_selected, prev_num_solutions_remaining, attempt_reward,
+    #         )
 
-            # TODO(mjedmonds): refactor to find better way to get trial success (and when this value will be available/set in the trial)
-            trial_finished = self.env.get_trial_success()
+    #         # TODO(mjedmonds): refactor to find better way to get trial success (and when this value will be available/set in the trial)
+    #         trial_finished = self.env.get_trial_success()
 
-            if num_chains_pruned_this_attempt == 0:
-                num_steps_since_last_pruning += 1
-            else:
-                num_steps_since_last_pruning = 0
+    #         if num_chains_pruned_this_attempt == 0:
+    #             num_steps_since_last_pruning += 1
+    #         else:
+    #             num_steps_since_last_pruning = 0
 
-            if (
-                num_steps_since_last_pruning > max_steps_with_no_pruning
-                and not self.ablation.PRUNING
-            ):
-                print_message(
-                    self.trial_count,
-                    self.attempt_count,
-                    "Exiting trial due to no chains pruned in {} steps".format(
-                        num_steps_since_last_pruning
-                    ),
-                    self.print_messages,
-                )
-                trial_finished = True
+    #         if (
+    #             num_steps_since_last_pruning > max_steps_with_no_pruning
+    #             and not self.ablation.PRUNING
+    #         ):
+    #             print_message(
+    #                 self.trial_count,
+    #                 self.attempt_count,
+    #                 "Exiting trial due to no chains pruned in {} steps".format(
+    #                     num_steps_since_last_pruning
+    #                 ),
+    #                 self.print_messages,
+    #             )
+    #             trial_finished = True
 
-        self.finish_trial(trial_selected, test_trial=False)
+    #     self.finish_trial(trial_selected, test_trial=False)
 
     def execute_attempt_intervention(
         self, intervention, trial_selected, causal_change_index
@@ -835,7 +851,7 @@ class OpenLockLearnerAgent(Agent):
             n_chains_in_schema=num_solutions_in_trial,
             causal_chain_structure_space=self.causal_chain_space.structure_space,
             excluded_chain_idxs=excluded_chain_idxs,
-            multiproc=True,
+            multiproc=multiproc,
         )
 
         self.instantiated_schema_space.structure_space = instantiated_schemas
@@ -880,8 +896,12 @@ class OpenLockLearnerAgent(Agent):
 
     def get_causal_chain_idxs_with_positive_belief(self):
         # get indices with positive belief from top-down and bottom-up
-        bottom_up_causal_chain_idxs_with_positive_belief = self.causal_chain_space.bottom_up_belief_space.get_idxs_with_belief_above_threshold()
-        top_down_causal_chain_idxs_with_positive_belief = self.causal_chain_space.top_down_belief_space.get_idxs_with_belief_above_threshold()
+        bottom_up_causal_chain_idxs_with_positive_belief = (
+            self.causal_chain_space.bottom_up_belief_space.get_idxs_with_belief_above_threshold()
+        )
+        top_down_causal_chain_idxs_with_positive_belief = (
+            self.causal_chain_space.top_down_belief_space.get_idxs_with_belief_above_threshold()
+        )
         # actual candidate set is the intersection between top down and bottom up
         causal_chain_idxs_with_positive_belief = list(
             set(bottom_up_causal_chain_idxs_with_positive_belief).intersection(

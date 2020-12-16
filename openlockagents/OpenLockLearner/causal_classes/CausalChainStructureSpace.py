@@ -12,10 +12,11 @@ import texttable  # type: ignore
 from openlock.common import Action  # type: ignore
 from openlock.logger_env import ActionLog  # type: ignore
 from openlockagents.common.io.log_io import pretty_write
-from openlockagents.OpenLockLearner.causal_classes.CausalRelation import \
-    CausalRelation
-from openlockagents.OpenLockLearner.util.common import (ALL_CAUSAL_CHAINS,
-                                                        check_for_duplicates)
+from openlockagents.OpenLockLearner.causal_classes.CausalRelation import CausalRelation
+from openlockagents.OpenLockLearner.util.common import (
+    ALL_CAUSAL_CHAINS,
+    check_for_duplicates,
+)
 
 
 class CausalChainStructureSpace:
@@ -345,8 +346,8 @@ class CausalChainStructureSpace:
             else:
                 if last_good_action is not None:
                     events.append((last_good_action, min(noops, self.max_delay)))
-                    noops = 0
                 last_good_action = action
+                noops = 0
         if last_good_action is not None:
             events.append((last_good_action, self.max_delay))
         return events
@@ -356,10 +357,17 @@ class CausalChainStructureSpace:
     ) -> List[int]:
         assert len(actions) == len(change_observed)
         causal_events = self._make_causal_events(actions, change_observed)
-        logging.debug(f"actions={actions}, change_observed={change_observed}, causal_events={causal_events}")
+        logging.debug(
+            f"actions={actions}, change_observed={change_observed}, causal_events={causal_events}"
+        )
         if len(causal_events) > 0:
             node = self.trie
             for event in causal_events:
+                if event not in node.keys():
+                    logging.warning(
+                        f"Action sequence {actions}, {change_observed}, {causal_events} not in trie."
+                    )
+                    return []
                 node, indexes = node[event]
         else:
             indexes = list(range(len(self.causal_chains)))

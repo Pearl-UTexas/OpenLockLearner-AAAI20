@@ -9,15 +9,17 @@ from typing import Sequence
 import numpy as np
 from openlock.common import Action
 from openlockagents.common.common import DEBUGGING
-from openlockagents.OpenLockLearner.causal_classes.CausalChainStructureSpace import \
-    CausalChainStructureSpace
-from openlockagents.OpenLockLearner.causal_classes.StructureAndBeliefSpaceWrapper import \
-    TopDownBottomUpStructureAndBeliefSpaceWrapper
-from openlockagents.OpenLockLearner.learner.ModelBasedPlanner import \
-    ModelBasedPlanner
+from openlockagents.OpenLockLearner.causal_classes.StructureAndBeliefSpaceWrapper import (
+    TopDownBottomUpStructureAndBeliefSpaceWrapper,
+)
+from openlockagents.OpenLockLearner.learner.ModelBasedPlanner import ModelBasedPlanner
 from openlockagents.OpenLockLearner.util.common import (
-    get_highest_N_idxs, get_highest_N_values, renormalize,
-    verify_valid_probability_distribution)
+    get_highest_N_idxs,
+    get_highest_N_values,
+    renormalize,
+    verify_valid_probability_distribution,
+)
+from openlockagents.OpenLockLearner.util.util import expand_wildcards
 
 MAX_ENERGY = sys.float_info.max
 
@@ -37,10 +39,9 @@ class ModelBasedRLAgent:
 
     def compute_chain_transition_probability(
         self,
-        causal_chain_space,
-        causal_chain_idx,
-        interventions_executed_set,
-        first_trial,
+        causal_chain_space: TopDownBottomUpStructureAndBeliefSpaceWrapper,
+        causal_chain_idx: int,
+        first_trial: bool,
         **kwargs,
     ):
         ablation = kwargs["ablation"] if "ablation" in kwargs.keys() else None
@@ -52,17 +53,9 @@ class ModelBasedRLAgent:
             causal_chain_idx
         ]
 
-        causal_chain_actions = tuple(
-            causal_chain_space.structure_space.get_actions(causal_chain_idx)
-        )
-
         # check if this chain is already in our solutions
-        if (
-            causal_chain_actions in self.state[1:]
-            or causal_chain_actions in interventions_executed_set
-            or not self.model_based_planner.determine_chain_satisfies_goal(
-                causal_chain_space.structure_space, causal_chain_idx
-            )
+        if not self.model_based_planner.determine_chain_satisfies_goal(
+            causal_chain_space.structure_space, causal_chain_idx
         ):
             energy = MAX_ENERGY
         else:
@@ -103,10 +96,8 @@ class ModelBasedRLAgent:
         action_beliefs,
         causal_chain_space: TopDownBottomUpStructureAndBeliefSpaceWrapper,
         causal_chain_idx: int,
-        timestep: int,
         chain_posterior: float,
         change_observed: Sequence[bool],
-        log_door_chains=False,
     ):
         causal_chain_actions = causal_chain_space.structure_space.get_actions(
             causal_chain_idx, fill_delays=True
@@ -114,7 +105,7 @@ class ModelBasedRLAgent:
 
         # NOTE(joschnei): Just added this, computes the index into the causal chain, ignoring
         # actions that are not part of the chain
-        
+
         t = 0
         for change in change_observed:
             if change and causal_chain_actions[t] is not None:
@@ -122,20 +113,19 @@ class ModelBasedRLAgent:
             elif not change and causal_chain_actions[t] is None:
                 t += 1
             elif change and causal_chain_actions[t] is None:
-                logging.error(f"Impossible situation with change_observed={change_observed}, causal_chain_actions={causal_chain_actions}, t={t}")
-                raise ValueError("What the fuck?")
-            
-
+                logging.error(
+                    f"Impossible situation with change_observed={change_observed}, causal_chain_actions={causal_chain_actions}, t={t}"
+                )
+                raise RuntimeError("Cannot have a change along with a wildcard action.")
 
         if t < len(causal_chain_actions):
             node_action = causal_chain_actions[t]
             if node_action is not None:
                 # marginalize the belief of this action by summing over chain posteriors
+                assert chain_posterior > 0.0
                 action_beliefs[node_action] += chain_posterior
-                if timestep == 2 and t == 1 and str(node_action) == "push_door" and log_door_chains:
-                    logging.debug(
-                        f"Considering pushing door in id={causal_chain_idx}, actions={causal_chain_actions}, chain={causal_chain_space.structure_space.causal_chains[causal_chain_idx]}"
-                    )
+            elif t == 0:
+                raise ValueError("First action cannot be none")
 
         return action_beliefs
 
@@ -149,11 +139,9 @@ class ModelBasedRLAgent:
         self,
         causal_chain_space: TopDownBottomUpStructureAndBeliefSpaceWrapper,
         causal_chain_idxs: Sequence[int],
-        timestep: int,
         action_sequence: Sequence[Action],
         change_observed: Sequence[bool],
         first_trial,
-        interventions_executed=None,
         ablation=None,
         dont_push=False,
     ):
@@ -169,18 +157,21 @@ class ModelBasedRLAgent:
         :param ablation: model ablations
         :return: best_action: the optimal action, action_beliefs: the beliefs of each action
         """
-        interventions_executed_set = set(interventions_executed)
-
-        log_door_chains = dont_push and len(change_observed) > 0 and change_observed[0] == True
+        # logging.info("Action selection entry")
+        log_door_chains = (
+            dont_push and len(change_observed) > 0 and change_observed[0] == True
+        )
 
         if dont_push:
             logging.debug(f"causal_chain_idxs={causal_chain_idxs}")
 
         # find causal chains that contain this action sequence
         if len(action_sequence) > 0:
+            # logging.info("Getting consistent sequences")
             causal_chain_idxs_with_action_seq = causal_chain_space.structure_space.get_chain_idxs_from_actions(
                 action_sequence, change_observed
             )
+            # logging.info("Taking intersection with positive belief chains")
             causal_chain_idxs = list(
                 set(causal_chain_idxs).intersection(causal_chain_idxs_with_action_seq)
             )
@@ -191,58 +182,63 @@ class ModelBasedRLAgent:
         action_beliefs = defaultdict(int)
 
         # maginalize over chains iterate over all causal chains, and add their respective beliefs to the corresponding action
+        # logging.info("Adding up chain posteriors")
+        any_chain_posterior_positive = False
         for causal_chain_idx in causal_chain_idxs:
+            # logging.info("Computing chain posterior")
             chain_posterior = self.compute_chain_transition_probability(
                 causal_chain_space=causal_chain_space,
                 causal_chain_idx=causal_chain_idx,
-                interventions_executed_set=interventions_executed_set,
                 first_trial=first_trial,
                 **{"ablation": ablation},
             )
 
             # skip marginalizing any action with no posterior
-            if chain_posterior == 0.0:
+            if chain_posterior <= 0.0:
                 continue
 
+            any_chain_posterior_positive = True
+
             # TODO(joschnei): Make consistent with timestep instead of causal_chain_idx
+            # logging.info("Adding action belief")
             action_beliefs = self.marginalize_node_transition_probability(
                 action_beliefs,
                 causal_chain_space,
                 causal_chain_idx,
-                timestep,
                 chain_posterior,
                 change_observed,
                 log_door_chains=log_door_chains,
             )
 
+        if not any_chain_posterior_positive:
+            logging.warning("No chains with positive chain posterior")
+
         # if we were unable to pick and model-based action, choose a random action
         # this is possible when the agent has sufficient explored, but started an action sequence that corresponds to a solution already found (e.g. common effect)
         # in this case, the only causal chains that satisfy the goal are the solution already executed, but the solution chains also cannot be picked, so we choose a random action (the attempt is wasted)
         if len(action_beliefs.values()) == 0:
+            logging.warning("No action beliefs, selecting action from random chain")
             random_chain = self.random_chain_policy(causal_chain_idxs)
             random_chain_actions = causal_chain_space.structure_space.get_actions(
                 random_chain, fill_delays=True
             )
-            action = random_chain_actions[timestep]
-            while action is None:
-                random_chain = self.random_chain_policy(causal_chain_idxs)
-                random_chain_actions = causal_chain_space.structure_space.get_actions(
-                    random_chain, fill_delays=True
-                )
-            action = random_chain_actions[timestep]
+            action = random_chain_actions[0]
             return action, {}
 
         assert min(action_beliefs.values()) >= 0, "Action beliefs has negative value"
 
         # renormalize
+        # logging.info("Renormalizing")
         normalization_factor = sum(action_beliefs.values())
         for key in action_beliefs.keys():
             action_beliefs[key] /= normalization_factor
 
+        # logging.info("Verifying validity of distribution")
         assert verify_valid_probability_distribution(
             action_beliefs.values()
         ), "action beliefs is not a valid probability distribution"
         # best action has max marginal belief
+        # logging.info("Taking best action from beliefs")
         best_action = max(action_beliefs.items(), key=operator.itemgetter(1))[0]
         return best_action, action_beliefs
 
@@ -281,14 +277,12 @@ class ModelBasedRLAgent:
 
         # top_down_idxs_with_positive_belief = [i for i in range(len(causal_chain_space.top_down_belief_space.beliefs)) if causal_chain_space.top_down_belief_space.beliefs[i] > 0]
 
-        interventions_executed_set = set(interventions_executed)
         chain_transition_probabilities = []
         for causal_chain_idx in causal_chain_idxs:
             chain_transition_probabilities.append(
                 self.compute_chain_transition_probability(
                     causal_chain_space=causal_chain_space,
                     causal_chain_idx=causal_chain_idx,
-                    interventions_executed_set=interventions_executed_set,
                     first_trial=first_agent_trial,
                     **{"ablation": ablation},
                 )
@@ -466,21 +460,21 @@ class ModelBasedRLAgent:
 
         # print the top N
         num_to_print = 10
-        logging.info("Top top-down chains")
+        # logging.info("Top top-down chains")
         causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
             highest_N_top_down_belief_idxs[:num_to_print],
             beliefs=zipped_beliefs,
             energies=full_chain_transition_probabilities,
             belief_label="(bottom-up,top-down)",
         )
-        logging.info("Top bottom-up chains")
+        # logging.info("Top bottom-up chains")
         causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
             highest_N_bottom_up_belief_idxs[:num_to_print],
             beliefs=zipped_beliefs,
             energies=full_chain_transition_probabilities,
             belief_label="(bottom-up,top-down)",
         )
-        logging.info("Top final belief chains")
+        # logging.info("Top final belief chains")
         causal_chain_space.structure_space.pretty_print_causal_chain_idxs(
             highest_N_final_beliefs_idxs[:num_to_print],
             beliefs=zipped_beliefs,
